@@ -4,6 +4,7 @@ import { getStore } from '@netlify/blobs';
 const ADMIN_PASSWORD = 'andhika1312';
 // ===========================================
 
+const VERSION = 'v3';
 export const config = { path: '/api/*' };
 
 const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -43,7 +44,7 @@ export default async (req, context) => {
     const b = (await getBlocked()).find(x => x.ip === ip);
     if (b) return J({ blocked: true, reason: b.reason || '' });
     const messages = (await getMsgs()).filter(m => m.to === 'all' || m.to === ip).slice(-20);
-    return J({ ip, messages });
+    return J({ ip, messages, v: VERSION });
   }
   if (path === 'log') {
     { const bl = (await getBlocked()).find(x => x.ip === ip); if (bl) return J({ blocked: true, reason: bl.reason || '' }, 403); }
@@ -59,9 +60,10 @@ export default async (req, context) => {
     const f = (await db.get(fk, { type: 'json' })) || { n: 0, t: 0 };
     const LOCK = 300000, live = now - f.t < LOCK;
     if (live && f.n >= 10) return J({ error: 'Terlalu banyak percobaan salah. Coba lagi ' + Math.ceil((LOCK - (now - f.t)) / 60000) + ' menit lagi.' }, 429);
-    if (req.headers.get('x-admin-pass') !== ADMIN_PASSWORD) {
+    const got = (req.headers.get('x-admin-pass') || '').trim();
+    if (got !== ADMIN_PASSWORD) {
       await db.setJSON(fk, { n: (live ? f.n : 0) + 1, t: now });
-      return J({ error: 'Sandi salah' }, 401);
+      return J({ error: `Sandi salah (diterima ${got.length} karakter, server menunggu ${ADMIN_PASSWORD.length} karakter · ${VERSION})` }, 401);
     }
     if (f.n) await db.delete(fk);
     const act = path.slice(6);
