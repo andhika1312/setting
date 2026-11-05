@@ -18,7 +18,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;bord
 .hide{display:none!important}input.typing{border-color:var(--ac2)!important;box-shadow:0 0 0 3px #22d3ee33}.pulse{animation:pl 1s infinite;color:var(--ac2)}@keyframes pl{50%{opacity:.35}}.hint{color:var(--mu);font-size:12px}.tag{background:#f8717133;color:var(--bad);border-radius:99px;padding:1px 8px;font-size:11px}
 </style></head><body><main>
 <div class="card" id="login" style="max-width:380px;margin:12vh auto"><h2>🔐 Admin NEXORA SETINGS</h2>
-<div class="row"><input type="password" id="pw" placeholder="Sandi admin" style="flex:1" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="eye" type="button" title="Tampilkan / sembunyikan sandi">👁</button><button class="go" id="lg">Masuk</button></div><p class="hint" id="ts" style="min-height:18px"></p><p class="hint" id="err" style="color:var(--bad)"></p></div>
+<div class="row"><input type="password" id="pw" placeholder="Sandi admin" style="flex:1" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="eye" type="button" title="Tampilkan / sembunyikan sandi">👁</button><button class="go" id="lg">Masuk</button></div><p class="hint" id="ts" style="min-height:18px"></p><p class="hint" id="err" style="color:var(--bad)"></p></div>
 <div id="dash" class="hide">
 <div class="top"><h1>NEXORA <b>ADMIN</b></h1><div><button id="rf">⟳ Refresh</button> <button id="out">Keluar</button></div></div>
 <div class="stats" id="stats"></div>
@@ -56,12 +56,12 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-a]')
  load()});
 $('#badd').onclick=async()=>{const ip=$('#bip').value.trim();if(!ip)return;await api('block',{ip,reason:$('#brs').value});$('#bip').value=$('#brs').value='';load()};
 $('#send').onclick=async()=>{const t=$('#mt').value.trim();if(!t)return alert('Isi pesan dulu.');const r=await api('send',{to:$('#to').value,text:t});if(r.ok){$('#mt').value='';load()}else alert(r.d.error||'Gagal')};
-$('#lg').onclick=()=>{$('#err').textContent='';sessionStorage.ap=$('#pw').value.trim();enter()};
+$('#lg').onclick=()=>{const v=$('#pw').value.trim();if(!v){$('#err').textContent='Kolom sandi masih kosong. Ketik sandi dulu, lalu klik Masuk.';$('#pw').focus();return}$('#err').textContent='';sessionStorage.ap=v;enter()};
 let tt;$('#pw').oninput=()=>{const n=$('#pw').value.length,ts=$('#ts'),pw=$('#pw');clearTimeout(tt);
  if(!n){ts.textContent='';ts.classList.remove('pulse');pw.classList.remove('typing');return}
  pw.classList.add('typing');ts.classList.add('pulse');ts.textContent=`⌨️ Sedang mengetik… (${n} karakter)`;
  tt=setTimeout(()=>{pw.classList.remove('typing');ts.classList.remove('pulse');ts.textContent=`✓ ${n} karakter terisi`},1000)};
-$('#eye').onclick=()=>{const p=$('#pw');p.type=p.type==='password'?'text':'password'};$('#pw').onkeydown=e=>e.key==='Enter'&&$('#lg').click();
+$('#eye').onclick=()=>{const p=$('#pw');p.type=p.type==='password'?'text':'password'};$('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('#lg').click()});
 $('#rf').onclick=load;$('#out').onclick=()=>{sessionStorage.removeItem('ap');location.reload()};
 if(sessionStorage.ap)enter();
 </script></body></html>
