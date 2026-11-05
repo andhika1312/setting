@@ -150,7 +150,7 @@ Object.entries(GROUPS).forEach(([g,ks])=>{const og=document.createElement('optgr
 $('#paper').value='A4';
 let detAR=0,file=null,kind='',pdfDoc=null,imgEl=null,pageCount=1,outBytes=null,outName='nexora.pdf';
 
-const log=(event,d={})=>fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).catch(()=>{});
+const log=(event,d={})=>fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).then(r=>{if(r.status===403)r.json().then(x=>blockedScreen(x.reason))}).catch(()=>{});
 const show=id=>{['s1','s2','s3','s4'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));window.scrollTo({top:0,behavior:'smooth'})};
 $$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#layout').classList.toggle('hide',b.dataset.t!=='layout');$('#hd').classList.toggle('hide',b.dataset.t!=='hd')});
 $$('[data-back]').forEach(b=>b.onclick=()=>show(b.dataset.back));
@@ -390,28 +390,37 @@ const STEPS=[
 ['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
 ['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
 ['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar.']];
-function tutorial(i=0){
-  box.innerHTML=`<h2>📖 Cara pakai (${i+1}/${STEPS.length})</h2><h3 style="margin:6px 0">${STEPS[i][0]}</h3><p>${STEPS[i][1]}</p><div class="row"><button class="sec" id="tP" ${i?'':'disabled'}>← Sebelumnya</button><button class="go" id="tN">${i<STEPS.length-1?'Lanjut →':'Mulai pakai ✓'}</button><button class="sec" id="tX">Tutup</button></div>`;
+let pend=[];
+function tutorial(i=0,forced=false){
+  const last=i===STEPS.length-1;
+  box.innerHTML=`<h2>📖 Cara pakai (${i+1}/${STEPS.length})</h2><h3 style="margin:6px 0">${STEPS[i][0]}</h3><p>${STEPS[i][1]}</p>${forced&&last?'<label class="chk" style="margin:10px 0"><input type="checkbox" id="tOk"> Saya sudah membaca cara pakai</label>':''}<div class="row"><button class="sec" id="tP" ${i?'':'disabled'}>← Sebelumnya</button><button class="go" id="tN" ${forced&&last?'disabled':''}>${last?'Mulai pakai ✓':'Lanjut →'}</button>${forced?'':'<button class="sec" id="tX">Tutup</button>'}</div>${forced?'<p class="hint">Baca sampai langkah terakhir untuk mulai memakai web.</p>':''}`;
   ov.classList.remove('hide');
-  const done=()=>{try{localStorage.nx_tut=1}catch{}closeOv()};
-  $('#tP').onclick=()=>tutorial(i-1);$('#tN').onclick=()=>i<STEPS.length-1?tutorial(i+1):done();$('#tX').onclick=done;
+  const done=()=>{try{localStorage.nx_tut=1}catch{}closeOv();if(pend.length){const l=pend;pend=[];showMsgs(l)}};
+  $('#tP').onclick=()=>tutorial(i-1,forced);
+  $('#tN').onclick=()=>last?done():tutorial(i+1,forced);
+  if(forced&&last)$('#tOk').onchange=e=>{$('#tN').disabled=!e.target.checked};
+  if(!forced)$('#tX').onclick=closeOv;
 }
 function showMsgs(list){
   box.innerHTML='<h2>📢 Pesan dari Admin</h2>'+list.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+'<button class="go" id="mOk">Mengerti</button>';
   ov.classList.remove('hide');
-  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv();if(!localStorage.nx_tut)tutorial()};
+  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv()};
+}
+function blockedScreen(reason){
+  document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div style="max-width:420px"><div style="font-size:56px">🚫</div><h2 style="margin:8px 0">Akses kamu diblokir</h2><div style="background:#141828;border:1px solid #262c45;border-radius:14px;padding:14px;margin:14px 0;white-space:pre-wrap;text-align:left"><div style="color:#8b92b5;font-size:12px;margin-bottom:4px">Pesan dari admin:</div>${esc(reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</div><p style="color:#8b92b5;font-size:13px">Merasa ini kesalahan? Hubungi admin untuk meminta akses dibuka kembali.</p></div></div>`;
 }
 $('#tutBtn').onclick=()=>tutorial();
 let taps=0,tt;$('#logo').onclick=()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,1500);if(taps>=5)location.href='/admin.html'};
 (async()=>{
+  let first=true;try{first=!localStorage.nx_tut}catch{}
+  if(first)tutorial(0,true);
   let seen=[];try{seen=JSON.parse(localStorage.nx_seen||'[]')}catch{}
   try{
     const r=await fetch('/api/hello',{method:'POST'});if(!r.ok)throw 0;const d=await r.json();
-    if(d.blocked){document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div><div style="font-size:48px">🚫</div><h2>Akses diblokir</h2><p style="color:#8b92b5">${esc(d.reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</p></div></div>`;return}
+    if(d.blocked)return blockedScreen(d.reason);
     const nw=(d.messages||[]).filter(m=>!seen.includes(m.id));
-    if(nw.length)return showMsgs(nw);
+    if(nw.length){if(ov.classList.contains('hide'))showMsgs(nw);else pend=nw}
   }catch{}
-  try{if(!localStorage.nx_tut)tutorial()}catch{}
 })();
 </script>
 </body>

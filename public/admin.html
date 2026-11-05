@@ -24,7 +24,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;bord
 <div class="stats" id="stats"></div>
 <div class="tabs"><button data-t="u" class="on">Pengguna</button><button data-t="b">Blokir IP</button><button data-t="m">Pesan</button></div>
 <div class="card" id="tu"><div style="overflow:auto"><table id="ut"></table></div></div>
-<div class="card hide" id="tb"><h2>Blokir IP</h2><div class="row"><input id="bip" placeholder="Alamat IP" style="flex:1"><input id="brs" placeholder="Alasan (opsional)" style="flex:2"><button class="go" id="badd">Blokir</button></div><div style="overflow:auto"><table id="bt"></table></div></div>
+<div class="card hide" id="tb"><h2>Blokir IP</h2><div class="row"><input id="bip" placeholder="Alamat IP" style="flex:1"><input id="brs" placeholder="Pesan untuk user yang diblokir (opsional)" style="flex:2"><button class="go" id="badd">Blokir</button></div><div style="overflow:auto"><table id="bt"></table></div></div>
 <div class="card hide" id="tm"><h2>Kirim pesan ke pengguna</h2>
 <div class="row"><select id="to"></select></div><textarea id="mt" maxlength="500" placeholder="Tulis pesan (maks 500 karakter)…"></textarea>
 <div class="row"><button class="go" id="send">Kirim Pesan</button></div><p class="hint">Pesan muncul sebagai pop-up saat user membuka web.</p>
@@ -42,14 +42,14 @@ function render(){
  const bl=new Set(D.blocked.map(b=>b.ip));
  $('#stats').innerHTML=`<div><b>${D.users.length}</b>Pengguna (IP)</div><div><b>${D.users.reduce((a,u)=>a+u.events,0)}</b>Total aktivitas</div><div><b>${D.blocked.length}</b>IP diblokir</div><div><b>${D.msgs.length}</b>Pesan aktif</div>`;
  $('#ut').innerHTML='<tr><th>IP</th><th>Kunjungan</th><th>Aktivitas</th><th>Terakhir</th><th>Aktivitas terbaru</th><th></th></tr>'+D.users.map(u=>`<tr><td>${esc(u.ip)} ${bl.has(u.ip)?'<span class="tag">BLOKIR</span>':''}<div class="hint">${esc((u.ua||'').slice(0,50))}</div></td><td>${u.visits}</td><td>${u.events}</td><td>${fmt(u.last)}</td><td>${(u.recent||[]).slice(0,3).map(r=>`${esc(r.e)} <span class="hint">${esc(r.d)}</span>`).join('<br>')||'-'}</td><td style="white-space:nowrap"><button data-a="msg" data-ip="${esc(u.ip)}">Pesan</button> ${bl.has(u.ip)?`<button data-a="unblock" data-ip="${esc(u.ip)}">Buka</button>`:`<button class="bad" data-a="block" data-ip="${esc(u.ip)}">Blokir</button>`}</td></tr>`).join('');
- $('#bt').innerHTML='<tr><th>IP</th><th>Alasan</th><th>Sejak</th><th></th></tr>'+(D.blocked.map(b=>`<tr><td>${esc(b.ip)}</td><td>${esc(b.reason)||'-'}</td><td>${fmt(b.at)}</td><td><button data-a="unblock" data-ip="${esc(b.ip)}">Buka blokir</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">Belum ada IP diblokir</td></tr>');
+ $('#bt').innerHTML='<tr><th>IP</th><th>Pesan ke user</th><th>Sejak</th><th></th></tr>'+(D.blocked.map(b=>`<tr><td>${esc(b.ip)}</td><td>${esc(b.reason)||'-'}</td><td>${fmt(b.at)}</td><td><button data-a="unblock" data-ip="${esc(b.ip)}">Buka blokir</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">Belum ada IP diblokir</td></tr>');
  const cur=$('#to').value;$('#to').innerHTML='<option value="all">Semua pengguna</option>'+D.users.map(u=>`<option value="${esc(u.ip)}">${esc(u.ip)}</option>`).join('');if(cur)$('#to').value=cur;
  $('#mtb').innerHTML='<tr><th>Ke</th><th>Pesan</th><th>Waktu</th><th></th></tr>'+(D.msgs.slice().reverse().map(m=>`<tr><td>${m.to==='all'?'Semua':esc(m.to)}</td><td style="white-space:pre-wrap">${esc(m.text)}</td><td>${fmt(m.at)}</td><td><button class="bad" data-a="delmsg" data-id="${m.id}">Hapus</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">Belum ada pesan</td></tr>');
 }
 function tab(t){document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));['u','b','m'].forEach(x=>$('#t'+x).classList.toggle('hide',x!==t))}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,ip=b.dataset.ip;
- if(a==='block'){const r=prompt('Alasan blokir (opsional):');if(r===null)return;await api('block',{ip,reason:r})}
+ if(a==='block'){const r=prompt('Pesan yang akan dibaca user yang diblokir (boleh kosong):');if(r===null)return;await api('block',{ip,reason:r})}
  if(a==='unblock')await api('unblock',{ip});
  if(a==='delmsg')await api('delmsg',{id:b.dataset.id});
  if(a==='msg'){tab('m');$('#to').value=ip;$('#mt').focus();return}

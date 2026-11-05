@@ -1,7 +1,7 @@
 import { getStore } from '@netlify/blobs';
 
 // ======== GANTI SANDI ADMIN DI SINI ========
-const ADMIN_PASSWORD = 'nexora-admin-ganti-ini';
+const ADMIN_PASSWORD = 'andhika1312';
 // ===========================================
 
 export const config = { path: '/api/*' };
@@ -46,7 +46,7 @@ export default async (req, context) => {
     return J({ ip, messages });
   }
   if (path === 'log') {
-    if ((await getBlocked()).find(x => x.ip === ip)) return J({ blocked: true }, 403);
+    { const bl = (await getBlocked()).find(x => x.ip === ip); if (bl) return J({ blocked: true, reason: bl.reason || '' }, 403); }
     await touch(body);
     const { event, ...rest } = body;
     await discord('NEXORA SETINGS • ' + String(event || 'log').slice(0, 60), { ...rest, IP: ip, Perangkat: ua });
