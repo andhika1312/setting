@@ -58,7 +58,7 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
   </div>
   <div class="row">
     <label>Ukuran design awal (L × T)<span style="display:flex;gap:6px;align-items:center"><input type="number" id="ow" step="any" min="0"><span class="x">×</span><input type="number" id="oh" step="any" min="0"></span></label>
-    <label>Ukuran setelah dilebihkan (L × T)<span style="display:flex;gap:6px;align-items:center"><input type="number" id="ew" step="any" min="0"><span class="x">×</span><input type="number" id="eh" step="any" min="0"></span></label>
+    <label>Ukuran setelah dilebihkan (L × T) <i style="font-weight:400">— otomatis, boleh kosong</i><span style="display:flex;gap:6px;align-items:center"><input type="number" id="ew" step="any" min="0" placeholder="otomatis"><span class="x">×</span><input type="number" id="eh" step="any" min="0" placeholder="otomatis"></span></label>
   </div>
   <p class="hint" id="detect"></p>
   <button class="go" id="toSet">Settings →</button>
@@ -138,6 +138,54 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
 <footer>NEXORA SETINGS · gratis dipakai · proses berjalan di browser kamu</footer>
 
 <div class="ov hide" id="ov"><div class="card" id="ovBox"></div></div>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+// ---------- tutorial, pesan admin, blokir ----------
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ov=$('#ov'),box=$('#ovBox'),closeOv=()=>ov.classList.add('hide');
+const STEPS=[
+['Upload file','Klik kotak upload lalu pilih file design <b>JPG</b> atau <b>PDF</b>.'],
+['Isi ukuran','Isi <b>ukuran design awal</b>. <b>Ukuran setelah dilebihkan</b> (bleed) terisi otomatis; ubah kalau ada lebihan, atau kosongkan kalau tidak ada lebihan. Perbandingan Lebar × Tinggi harus sama dengan file supaya garis potong pas. Klik <b>Settings</b>.'],
+['Settings garis potong','Pilih jenis, tebal, panjang &amp; warna garis potong (ada di sudut luar). Ukuran potong = ukuran design; centang kalau sama, atau isi manual. Klik <b>Mulai</b>.'],
+['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
+['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
+['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar.']];
+let pend=[];
+function tutorial(i=0,forced=false){
+  const last=i===STEPS.length-1;
+  box.innerHTML=`<h2>📖 Cara pakai (${i+1}/${STEPS.length})</h2><h3 style="margin:6px 0">${STEPS[i][0]}</h3><p>${STEPS[i][1]}</p>${forced&&last?'<label class="chk" style="margin:10px 0"><input type="checkbox" id="tOk"> Saya sudah membaca cara pakai</label>':''}<div class="row"><button class="sec" id="tP" ${i?'':'disabled'}>← Sebelumnya</button><button class="go" id="tN" ${forced&&last?'disabled':''}>${last?'Mulai pakai ✓':'Lanjut →'}</button>${forced?'':'<button class="sec" id="tX">Tutup</button>'}</div>${forced?'<p class="hint">Baca sampai langkah terakhir untuk mulai memakai web.</p>':''}`;
+  ov.classList.remove('hide');
+  const done=()=>{closeOv();if(pend.length){const l=pend;pend=[];showMsgs(l)}};
+  $('#tP').onclick=()=>tutorial(i-1,forced);
+  $('#tN').onclick=()=>last?done():tutorial(i+1,forced);
+  if(forced&&last)$('#tOk').onchange=e=>{$('#tN').disabled=!e.target.checked};
+  if(!forced)$('#tX').onclick=closeOv;
+}
+function showMsgs(list){
+  box.innerHTML='<h2>📢 Pesan dari Admin</h2>'+list.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+'<button class="go" id="mOk">Mengerti</button>';
+  ov.classList.remove('hide');
+  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv()};
+}
+function blockedScreen(reason){
+  document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div style="max-width:420px"><div style="font-size:56px">🚫</div><h2 style="margin:8px 0">Akses kamu diblokir</h2><div style="background:#141828;border:1px solid #262c45;border-radius:14px;padding:14px;margin:14px 0;white-space:pre-wrap;text-align:left"><div style="color:#8b92b5;font-size:12px;margin-bottom:4px">Pesan dari admin:</div>${esc(reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</div><p style="color:#8b92b5;font-size:13px">Merasa ini kesalahan? Hubungi admin untuk meminta akses dibuka kembali.</p></div></div>`;
+}
+$('#tutBtn').onclick=()=>tutorial();
+let taps=0,tt;$('#logo').onclick=()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,1500);if(taps>=5)location.href='/admin.html'};
+(async()=>{
+  tutorial(0,true);
+  let seen=[];try{seen=JSON.parse(localStorage.nx_seen||'[]')}catch{}
+  try{
+    const r=await fetch('/api/hello',{method:'POST'});if(!r.ok)throw 0;const d=await r.json();
+    if(d.blocked)return blockedScreen(d.reason);
+    const nw=(d.messages||[]).filter(m=>!seen.includes(m.id));
+    if(nw.length){if(ov.classList.contains('hide'))showMsgs(nw);else pend=nw}
+  }catch{}
+})();
+
+window.blockedScreen=blockedScreen;
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -148,7 +196,7 @@ const PAPERS={A0:[841,1189],A1:[594,841],A2:[420,594],A3:[297,420],A4:[210,297],
 const GROUPS={'Seri A':['A0','A1','A2','A3','A4','A5','A6'],'Kertas Digital Print':['A3+','SRA3','13x19 inch','12x18 inch','Ledger 11x17 inch'],'Seri B':['B3','B4','B5'],'Lokal / US':['F4','Folio','Letter','Legal'],'Lainnya':['Custom']};
 Object.entries(GROUPS).forEach(([g,ks])=>{const og=document.createElement('optgroup');og.label=g;ks.forEach(k=>{const [w,h]=PAPERS[k];og.append(new Option(k==='Custom'?'Custom (isi ukuran sendiri)':`${k} — ${+(w/10).toFixed(1)} × ${+(h/10).toFixed(1)} cm (${w}×${h} mm)`,k))});$('#paper').append(og)});
 $('#paper').value='A4';
-let detAR=0,file=null,kind='',pdfDoc=null,imgEl=null,pageCount=1,outBytes=null,outName='nexora.pdf';
+let edDirty=false,detMM=null,prevUnit='mm',detAR=0,file=null,kind='',pdfDoc=null,imgEl=null,pageCount=1,outBytes=null,outName='nexora.pdf';
 
 const log=(event,d={})=>fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).then(r=>{if(r.status===403)r.json().then(x=>blockedScreen(x.reason))}).catch(()=>{});
 const show=id=>{['s1','s2','s3','s4'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));window.scrollTo({top:0,behavior:'smooth'})};
@@ -165,16 +213,16 @@ async function loadFile(f){
   const n=f.name.toLowerCase();
   const isPdf=f.type==='application/pdf'||n.endsWith('.pdf'),isJpg=/jpe?g$/.test(n)||f.type==='image/jpeg';
   if(!isPdf&&!isJpg){alert('File harus JPG atau PDF.');return}
-  file=f;pdfDoc=null;imgEl=null;$('#detect').textContent='';
+  file=f;pdfDoc=null;imgEl=null;detMM=null;detAR=0;$('#detect').textContent='';
   try{
     if(isPdf){
       kind='pdf';pdfDoc=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;pageCount=pdfDoc.numPages;
       const v=(await pdfDoc.getPage(1)).getViewport({scale:1}),w=(v.width*25.4/72).toFixed(1),h=(v.height*25.4/72).toFixed(1);
-      detAR=v.width/v.height;$('#detect').textContent=`Ukuran halaman 1 terdeteksi: ${w} × ${h} mm (dipakai sebagai ukuran setelah dilebihkan jika kosong).`;
-      if(!$('#ew').value){$('#unit').value='mm';$('#ew').value=w;$('#eh').value=h}
+      detAR=v.width/v.height;$('#detect').textContent=`Ukuran halaman 1 terdeteksi: ${w} × ${h} mm (otomatis diisi ke ukuran setelah dilebihkan; kosongkan jika tanpa lebihan).`;
+      convUnit('mm');$('#unit').value='mm';$('#ew').value=w;$('#eh').value=h;edDirty=false;detMM=[w,h]
     }else{
       kind='img';pageCount=1;imgEl=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(f)});
-      detAR=imgEl.width/imgEl.height;$('#detect').textContent=`Resolusi gambar: ${imgEl.width} × ${imgEl.height} px.`;
+      detAR=imgEl.width/imgEl.height;if(!edDirty)syncEnl();$('#detect').textContent=`Resolusi gambar: ${imgEl.width} × ${imgEl.height} px.`;
     }
     $('#finfo').innerHTML=`<b style="color:var(--ok)">${f.name}</b> · ${(f.size/1048576).toFixed(2)} MB · ${pageCount} halaman`;
     $('#pg').max=pageCount;
@@ -187,8 +235,10 @@ const getU=()=>U[$('#unit').value];
 const num=id=>parseFloat($(id).value)*getU();
 $('#toSet').onclick=()=>{
   if(!file)return alert('Upload file JPG/PDF dulu.');
+  if(!(num('#ow')>0&&num('#oh')>0))return alert('Isi ukuran design awal dulu (lebar & tinggi).');
+  if(!(parseFloat($('#ew').value)>0))$('#ew').value=$('#ow').value;
+  if(!(parseFloat($('#eh').value)>0))$('#eh').value=$('#oh').value;
   const [ow,oh,ew,eh]=['#ow','#oh','#ew','#eh'].map(num);
-  if(![ow,oh,ew,eh].every(x=>x>0))return alert('Isi ukuran design awal & ukuran setelah dilebihkan.');
   if(ew<ow-0.01||eh<oh-0.01)return alert('Ukuran setelah dilebihkan harus ≥ ukuran design awal.');
   const want=ew/eh;
   if(detAR&&Math.abs(detAR/want-1)>0.01&&!confirm(`Rasio file (${detAR.toFixed(3)}) tidak sama dengan ukuran setelah dilebihkan yang kamu isi (${want.toFixed(3)}). Design akan melar dan garis potong jadi tidak pas${Math.abs(detAR*want-1)<0.02?' (kemungkinan Lebar dan Tinggi tertukar)':''}. Tetap lanjut?`))return;
@@ -215,6 +265,12 @@ $('#autoBook').onclick=()=>{
 };
 $('#again').onclick=()=>{outBytes=null;$('#preview').innerHTML='';show('s1')};
 
+// ---------- lebihan otomatis & satuan ----------
+function syncEnl(){if(edDirty||detMM)return;$('#ew').value=$('#ow').value;$('#eh').value=$('#oh').value}
+['#ow','#oh'].forEach(i=>$(i).addEventListener('input',syncEnl));
+['#ew','#eh'].forEach(i=>$(i).addEventListener('input',()=>{edDirty=!!($('#ew').value||$('#eh').value);if(!edDirty)syncEnl()}));
+function convUnit(to){const f=U[prevUnit]/U[to];['#ow','#oh','#ew','#eh','#cw','#ch'].forEach(i=>{const v=parseFloat($(i).value);if(v)$(i).value=+(v*f).toFixed(3)});prevUnit=to}
+$('#unit').onchange=()=>convUnit($('#unit').value);
 // ---------- core ----------
 function params(){
   const ew=num('#ew'),eh=num('#eh'),cw=num('#cw'),ch=num('#ch'),book=$('#mode').value==='book';
@@ -380,48 +436,6 @@ $('#hdGo').onclick=async()=>{
   }catch(e){$('#hdStat').textContent='Gagal memproses gambar.'}
 };
 
-// ---------- tutorial, pesan admin, blokir ----------
-const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const ov=$('#ov'),box=$('#ovBox'),closeOv=()=>ov.classList.add('hide');
-const STEPS=[
-['Upload file','Klik kotak upload lalu pilih file design <b>JPG</b> atau <b>PDF</b>.'],
-['Isi ukuran','Isi <b>ukuran design awal</b>, lalu <b>ukuran setelah dilebihkan</b> (bleed). Perbandingan Lebar × Tinggi harus sama dengan file supaya garis potong pas. Klik <b>Settings</b>.'],
-['Settings garis potong','Pilih jenis, tebal, panjang &amp; warna garis potong (ada di sudut luar). Ukuran potong = ukuran design; centang kalau sama, atau isi manual. Klik <b>Mulai</b>.'],
-['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
-['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
-['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar.']];
-let pend=[];
-function tutorial(i=0,forced=false){
-  const last=i===STEPS.length-1;
-  box.innerHTML=`<h2>📖 Cara pakai (${i+1}/${STEPS.length})</h2><h3 style="margin:6px 0">${STEPS[i][0]}</h3><p>${STEPS[i][1]}</p>${forced&&last?'<label class="chk" style="margin:10px 0"><input type="checkbox" id="tOk"> Saya sudah membaca cara pakai</label>':''}<div class="row"><button class="sec" id="tP" ${i?'':'disabled'}>← Sebelumnya</button><button class="go" id="tN" ${forced&&last?'disabled':''}>${last?'Mulai pakai ✓':'Lanjut →'}</button>${forced?'':'<button class="sec" id="tX">Tutup</button>'}</div>${forced?'<p class="hint">Baca sampai langkah terakhir untuk mulai memakai web.</p>':''}`;
-  ov.classList.remove('hide');
-  const done=()=>{try{localStorage.nx_tut=1}catch{}closeOv();if(pend.length){const l=pend;pend=[];showMsgs(l)}};
-  $('#tP').onclick=()=>tutorial(i-1,forced);
-  $('#tN').onclick=()=>last?done():tutorial(i+1,forced);
-  if(forced&&last)$('#tOk').onchange=e=>{$('#tN').disabled=!e.target.checked};
-  if(!forced)$('#tX').onclick=closeOv;
-}
-function showMsgs(list){
-  box.innerHTML='<h2>📢 Pesan dari Admin</h2>'+list.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+'<button class="go" id="mOk">Mengerti</button>';
-  ov.classList.remove('hide');
-  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv()};
-}
-function blockedScreen(reason){
-  document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div style="max-width:420px"><div style="font-size:56px">🚫</div><h2 style="margin:8px 0">Akses kamu diblokir</h2><div style="background:#141828;border:1px solid #262c45;border-radius:14px;padding:14px;margin:14px 0;white-space:pre-wrap;text-align:left"><div style="color:#8b92b5;font-size:12px;margin-bottom:4px">Pesan dari admin:</div>${esc(reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</div><p style="color:#8b92b5;font-size:13px">Merasa ini kesalahan? Hubungi admin untuk meminta akses dibuka kembali.</p></div></div>`;
-}
-$('#tutBtn').onclick=()=>tutorial();
-let taps=0,tt;$('#logo').onclick=()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,1500);if(taps>=5)location.href='/admin.html'};
-(async()=>{
-  let first=true;try{first=!localStorage.nx_tut}catch{}
-  if(first)tutorial(0,true);
-  let seen=[];try{seen=JSON.parse(localStorage.nx_seen||'[]')}catch{}
-  try{
-    const r=await fetch('/api/hello',{method:'POST'});if(!r.ok)throw 0;const d=await r.json();
-    if(d.blocked)return blockedScreen(d.reason);
-    const nw=(d.messages||[]).filter(m=>!seen.includes(m.id));
-    if(nw.length){if(ov.classList.contains('hide'))showMsgs(nw);else pend=nw}
-  }catch{}
-})();
 </script>
 </body>
 </html>
