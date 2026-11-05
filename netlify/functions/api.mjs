@@ -55,10 +55,10 @@ export default async (req, context) => {
 
   // ---------- admin ----------
   if (path.startsWith('admin/')) {
-    const fk = 'fails/' + K(ip);
+    const fk = 'fails2/' + K(ip);
     const f = (await db.get(fk, { type: 'json' })) || { n: 0, t: 0 };
-    const live = now - f.t < 900000;
-    if (live && f.n >= 5) return J({ error: 'Terlalu banyak percobaan salah. Coba lagi 15 menit.' }, 429);
+    const LOCK = 300000, live = now - f.t < LOCK;
+    if (live && f.n >= 10) return J({ error: 'Terlalu banyak percobaan salah. Coba lagi ' + Math.ceil((LOCK - (now - f.t)) / 60000) + ' menit lagi.' }, 429);
     if (req.headers.get('x-admin-pass') !== ADMIN_PASSWORD) {
       await db.setJSON(fk, { n: (live ? f.n : 0) + 1, t: now });
       return J({ error: 'Sandi salah' }, 401);
