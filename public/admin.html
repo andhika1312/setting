@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Admin</title>
+<style>
+:root{--bg:#0b0d17;--card:#141828;--line:#262c45;--tx:#e8eaf6;--mu:#8b92b5;--ac:#7c5cff;--ac2:#22d3ee;--bad:#f87171;--ok:#34d399}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,sans-serif}
+main{max-width:1000px;margin:auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h1{font-size:18px;margin:0;letter-spacing:2px}h1 b{color:var(--ac2)}h2{margin:0 0 10px;font-size:15px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+input,select,textarea{background:#0d1020;border:1px solid var(--line);color:var(--tx);padding:9px 10px;border-radius:9px;font:inherit;min-width:0}
+textarea{width:100%;min-height:80px}.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+button{cursor:pointer;border-radius:9px;border:1px solid var(--line);background:none;color:var(--mu);padding:8px 12px;font:inherit}
+.go{background:linear-gradient(135deg,var(--ac),#5b8cff);border:0;color:#fff;font-weight:600}.bad{color:var(--bad);border-color:#f8717166}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.stats b{display:block;font-size:22px;color:var(--ac2)}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button.on{color:#fff;border-color:var(--ac);background:#7c5cff22}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}th{color:var(--mu);font-weight:500}
+.hide{display:none!important}.hint{color:var(--mu);font-size:12px}.tag{background:#f8717133;color:var(--bad);border-radius:99px;padding:1px 8px;font-size:11px}
+</style></head><body><main>
+<div class="card" id="login" style="max-width:380px;margin:12vh auto"><h2>🔐 Admin NEXORA SETINGS</h2>
+<div class="row"><input type="password" id="pw" placeholder="Sandi admin" style="flex:1"><button class="go" id="lg">Masuk</button></div><p class="hint" id="err" style="color:var(--bad)"></p></div>
+<div id="dash" class="hide">
+<div class="top"><h1>NEXORA <b>ADMIN</b></h1><div><button id="rf">⟳ Refresh</button> <button id="out">Keluar</button></div></div>
+<div class="stats" id="stats"></div>
+<div class="tabs"><button data-t="u" class="on">Pengguna</button><button data-t="b">Blokir IP</button><button data-t="m">Pesan</button></div>
+<div class="card" id="tu"><div style="overflow:auto"><table id="ut"></table></div></div>
+<div class="card hide" id="tb"><h2>Blokir IP</h2><div class="row"><input id="bip" placeholder="Alamat IP" style="flex:1"><input id="brs" placeholder="Alasan (opsional)" style="flex:2"><button class="go" id="badd">Blokir</button></div><div style="overflow:auto"><table id="bt"></table></div></div>
+<div class="card hide" id="tm"><h2>Kirim pesan ke pengguna</h2>
+<div class="row"><select id="to"></select></div><textarea id="mt" maxlength="500" placeholder="Tulis pesan (maks 500 karakter)…"></textarea>
+<div class="row"><button class="go" id="send">Kirim Pesan</button></div><p class="hint">Pesan muncul sebagai pop-up saat user membuka web.</p>
+<div style="overflow:auto"><table id="mtb"></table></div></div>
+</div></main>
+<script>
+const $=s=>document.querySelector(s),esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=t=>t?new Date(t).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}):'-';
+let D={users:[],blocked:[],msgs:[]};
+async function api(p,b){const r=await fetch('/api/admin/'+p,{method:b?'POST':'GET',headers:{'x-admin-pass':sessionStorage.ap||'','content-type':'application/json'},body:b?JSON.stringify(b):undefined});return{ok:r.ok,d:await r.json().catch(()=>({}))}}
+async function enter(){const r=await api('login',{});if(!r.ok){$('#err').textContent=r.d.error||'Gagal masuk';sessionStorage.removeItem('ap');return}
+ $('#login').classList.add('hide');$('#dash').classList.remove('hide');await load();setInterval(load,20000)}
+async function load(){const r=await api('data');if(!r.ok)return location.reload();D=r.d;render()}
+function render(){
+ const bl=new Set(D.blocked.map(b=>b.ip));
+ $('#stats').innerHTML=`<div><b>${D.users.length}</b>Pengguna (IP)</div><div><b>${D.users.reduce((a,u)=>a+u.events,0)}</b>Total aktivitas</div><div><b>${D.blocked.length}</b>IP diblokir</div><div><b>${D.msgs.length}</b>Pesan aktif</div>`;
+ $('#ut').innerHTML='<tr><th>IP</th><th>Kunjungan</th><th>Aktivitas</th><th>Terakhir</th><th>Aktivitas terbaru</th><th></th></tr>'+D.users.map(u=>`<tr><td>${esc(u.ip)} ${bl.has(u.ip)?'<span class="tag">BLOKIR</span>':''}<div class="hint">${esc((u.ua||'').slice(0,50))}</div></td><td>${u.visits}</td><td>${u.events}</td><td>${fmt(u.last)}</td><td>${(u.recent||[]).slice(0,3).map(r=>`${esc(r.e)} <span class="hint">${esc(r.d)}</span>`).join('<br>')||'-'}</td><td style="white-space:nowrap"><button data-a="msg" data-ip="${esc(u.ip)}">Pesan</button> ${bl.has(u.ip)?`<button data-a="unblock" data-ip="${esc(u.ip)}">Buka</button>`:`<button class="bad" data-a="block" data-ip="${esc(u.ip)}">Blokir</button>`}</td></tr>`).join('');
+ $('#bt').innerHTML='<tr><th>IP</th><th>Alasan</th><th>Sejak</th><th></th></tr>'+(D.blocked.map(b=>`<tr><td>${esc(b.ip)}</td><td>${esc(b.reason)||'-'}</td><td>${fmt(b.at)}</td><td><button data-a="unblock" data-ip="${esc(b.ip)}">Buka blokir</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">Belum ada IP diblokir</td></tr>');
+ const cur=$('#to').value;$('#to').innerHTML='<option value="all">Semua pengguna</option>'+D.users.map(u=>`<option value="${esc(u.ip)}">${esc(u.ip)}</option>`).join('');if(cur)$('#to').value=cur;
+ $('#mtb').innerHTML='<tr><th>Ke</th><th>Pesan</th><th>Waktu</th><th></th></tr>'+(D.msgs.slice().reverse().map(m=>`<tr><td>${m.to==='all'?'Semua':esc(m.to)}</td><td style="white-space:pre-wrap">${esc(m.text)}</td><td>${fmt(m.at)}</td><td><button class="bad" data-a="delmsg" data-id="${m.id}">Hapus</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">Belum ada pesan</td></tr>');
+}
+function tab(t){document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));['u','b','m'].forEach(x=>$('#t'+x).classList.toggle('hide',x!==t))}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,ip=b.dataset.ip;
+ if(a==='block'){const r=prompt('Alasan blokir (opsional):');if(r===null)return;await api('block',{ip,reason:r})}
+ if(a==='unblock')await api('unblock',{ip});
+ if(a==='delmsg')await api('delmsg',{id:b.dataset.id});
+ if(a==='msg'){tab('m');$('#to').value=ip;$('#mt').focus();return}
+ load()});
+$('#badd').onclick=async()=>{const ip=$('#bip').value.trim();if(!ip)return;await api('block',{ip,reason:$('#brs').value});$('#bip').value=$('#brs').value='';load()};
+$('#send').onclick=async()=>{const t=$('#mt').value.trim();if(!t)return alert('Isi pesan dulu.');const r=await api('send',{to:$('#to').value,text:t});if(r.ok){$('#mt').value='';load()}else alert(r.d.error||'Gagal')};
+$('#lg').onclick=()=>{sessionStorage.ap=$('#pw').value;enter()};$('#pw').onkeydown=e=>e.key==='Enter'&&$('#lg').click();
+$('#rf').onclick=load;$('#out').onclick=()=>{sessionStorage.removeItem('ap');location.reload()};
+if(sessionStorage.ap)enter();
+</script></body></html>

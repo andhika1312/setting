@@ -36,12 +36,13 @@ button.sec{background:none;border:1px solid var(--line);color:var(--mu);padding:
 .pill{display:inline-block;background:#7c5cff22;border:1px solid var(--ac);border-radius:99px;padding:2px 10px;font-size:12px;margin-right:6px}
 textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace}
 footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
+.ov{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.ov>.card{max-width:520px;width:100%;max-height:90vh;overflow:auto;margin:0}
 </style>
 </head>
 <body>
 <header>
-  <h1>NEXORA <b>SETINGS</b></h1>
-  <nav><button class="tab on" data-t="layout">✂️ Layout Cetak</button><button class="tab" data-t="hd">✨ HD-kan Foto</button></nav>
+  <h1 id="logo">NEXORA <b>SETINGS</b></h1>
+  <nav><button class="tab on" data-t="layout">✂️ Layout Cetak</button><button class="tab" data-t="hd">✨ HD-kan Foto</button><button id="tutBtn">❓ Tutorial</button></nav>
 </header>
 <main>
 <section id="layout">
@@ -51,7 +52,7 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
   <div class="drop" id="drop">Klik atau seret file <b>JPG / PDF</b> ke sini<br><span id="finfo" class="hint">Belum ada file</span></div>
   <input type="file" id="file" accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf" class="hide">
   <div class="row">
-    <label>Satuan<select id="unit"><option value="cm">cm</option><option value="inch">inch</option></select></label>
+    <label>Satuan<select id="unit"><option value="mm">mm</option><option value="cm">cm</option><option value="inch">inch</option></select></label>
     <label>Mode
       <select id="mode"><option value="normal">Normal (isi kertas)</option><option value="book">Buku (susun halaman)</option></select></label>
   </div>
@@ -68,8 +69,8 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
   <label class="chk"><input type="checkbox" id="mk" checked> Pakai garis potong di setiap sudut</label>
   <div class="row" id="mkOpt">
     <label>Jenis garis<select id="mkType"><option value="solid">Lurus (solid)</option><option value="dash">Putus-putus</option><option value="dot">Titik-titik</option><option value="double">Ganda</option></select></label>
-    <label>Tebal<select id="mkTh"><option value="0.15">Tipis 0.015 cm</option><option value="0.25" selected>Sedang 0.025 cm</option><option value="0.4">Tebal 0.04 cm</option></select></label>
-    <label>Panjang<select id="mkLen"><option value="3">0.3 cm</option><option value="5" selected>0.5 cm</option><option value="8">0.8 cm</option></select></label>
+    <label>Tebal<select id="mkTh"><option value="0.15">Tipis 0.15 mm</option><option value="0.25" selected>Sedang 0.25 mm</option><option value="0.4">Tebal 0.4 mm</option></select></label>
+    <label>Panjang<select id="mkLen"><option value="3">3 mm</option><option value="5" selected>5 mm</option><option value="8">8 mm</option></select></label>
     <label>Warna<select id="mkCol"><option value="k">Hitam</option><option value="reg">Registrasi (semua warna)</option></select></label>
   </div>
   <h2 style="margin-top:16px">Ukuran Potong</h2>
@@ -83,10 +84,10 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
   <h2>3 · Pilih Kertas (Art Board putih)</h2><p class="hint">Design disusun menempel; garis potong hanya di sisi atas, bawah, kiri &amp; kanan lembar.</p>
   <div class="row">
     <label>Ukuran kertas<select id="paper"></select></label>
-    <label class="cust hide">Lebar (cm)<input type="number" id="pw" value="21" min="0" step="any"></label>
-    <label class="cust hide">Tinggi (cm)<input type="number" id="ph" value="29.7" min="0" step="any"></label>
-    <label>Margin kertas (cm)<input type="number" id="mg" value="0.5" min="0" step="any"></label>
-    <label>Jarak antar design (cm) · 0 = menempel<input type="number" id="gap" value="0" min="0" step="any"></label>
+    <label class="cust hide">Lebar (mm)<input type="number" id="pw" value="210"></label>
+    <label class="cust hide">Tinggi (mm)<input type="number" id="ph" value="297"></label>
+    <label>Margin kertas (mm)<input type="number" id="mg" value="5" min="0" step="any"></label>
+    <label>Jarak antar design (mm) · 0 = menempel<input type="number" id="gap" value="0" min="0" step="any"></label>
   </div>
   <div class="row" style="align-items:flex-start"><canvas id="fitCv" width="0" height="0" style="border-radius:6px;border:1px solid var(--line)"></canvas><p class="hint" id="fitInfo" style="flex:1;min-width:200px"></p></div>
   <div id="normalOpt" class="row">
@@ -136,19 +137,20 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
 </main>
 <footer>NEXORA SETINGS · gratis dipakai · proses berjalan di browser kamu</footer>
 
+<div class="ov hide" id="ov"><div class="card" id="ovBox"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const U={cm:10,inch:25.4};
-const PAPERS={A0:[841,1189],A1:[594,841],A2:[420,594],A3:[297,420],A4:[210,297],A5:[148,210],A6:[105,148],'A3+':[329,483],SRA3:[320,450],'13x19 inch':[330,483],'12x18 inch':[305,457],'Ledger 11x17 inch':[279,432],B3:[353,500],B4:[250,353],B5:[176,250],F4:[215,330],Folio:[210,330],Letter:[216,279],Legal:[216,356],Custom:[0,0]};
+const U={mm:1,cm:10,inch:25.4};
+const PAPERS={A0:[841,1189],A1:[594,841],A2:[420,594],A3:[297,420],A4:[210,297],A5:[148,210],A6:[105,148],'A3+':[325,485],SRA3:[320,450],'13x19 inch':[330,483],'12x18 inch':[305,457],'Ledger 11x17 inch':[279,432],B3:[353,500],B4:[250,353],B5:[176,250],F4:[215,330],Folio:[210,330],Letter:[216,279],Legal:[216,356],Custom:[0,0]};
 const GROUPS={'Seri A':['A0','A1','A2','A3','A4','A5','A6'],'Kertas Digital Print':['A3+','SRA3','13x19 inch','12x18 inch','Ledger 11x17 inch'],'Seri B':['B3','B4','B5'],'Lokal / US':['F4','Folio','Letter','Legal'],'Lainnya':['Custom']};
-Object.entries(GROUPS).forEach(([g,ks])=>{const og=document.createElement('optgroup');og.label=g;ks.forEach(k=>{const [w,h]=PAPERS[k];og.append(new Option(k==='Custom'?'Custom (isi ukuran sendiri)':`${k} — ${+(w/10).toFixed(1)} × ${+(h/10).toFixed(1)} cm`,k))});$('#paper').append(og)});
+Object.entries(GROUPS).forEach(([g,ks])=>{const og=document.createElement('optgroup');og.label=g;ks.forEach(k=>{const [w,h]=PAPERS[k];og.append(new Option(k==='Custom'?'Custom (isi ukuran sendiri)':`${k} — ${+(w/10).toFixed(1)} × ${+(h/10).toFixed(1)} cm (${w}×${h} mm)`,k))});$('#paper').append(og)});
 $('#paper').value='A4';
-let file=null,srcBuf=null,kind='',pdfDoc=null,imgEl=null,pageCount=1,outBytes=null,outName='nexora.pdf';
+let detAR=0,file=null,kind='',pdfDoc=null,imgEl=null,pageCount=1,outBytes=null,outName='nexora.pdf';
 
-const log=(event,d={})=>fetch('/.netlify/functions/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).catch(()=>{});
+const log=(event,d={})=>fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).catch(()=>{});
 const show=id=>{['s1','s2','s3','s4'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));window.scrollTo({top:0,behavior:'smooth'})};
 $$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#layout').classList.toggle('hide',b.dataset.t!=='layout');$('#hd').classList.toggle('hide',b.dataset.t!=='hd')});
 $$('[data-back]').forEach(b=>b.onclick=()=>show(b.dataset.back));
@@ -163,16 +165,16 @@ async function loadFile(f){
   const n=f.name.toLowerCase();
   const isPdf=f.type==='application/pdf'||n.endsWith('.pdf'),isJpg=/jpe?g$/.test(n)||f.type==='image/jpeg';
   if(!isPdf&&!isJpg){alert('File harus JPG atau PDF.');return}
-  file=f;pdfDoc=null;imgEl=null;srcBuf=await f.arrayBuffer();$('#detect').textContent='';
+  file=f;pdfDoc=null;imgEl=null;$('#detect').textContent='';
   try{
     if(isPdf){
-      kind='pdf';pdfDoc=await pdfjsLib.getDocument({data:srcBuf.slice(0)}).promise;pageCount=pdfDoc.numPages;
-      const v=(await pdfDoc.getPage(1)).getViewport({scale:1}),w=+(v.width*2.54/72).toFixed(2),h=+(v.height*2.54/72).toFixed(2);
-      $('#detect').textContent=`Ukuran halaman 1 terdeteksi: ${w} × ${h} cm (dipakai sebagai ukuran setelah dilebihkan jika kosong).`;
-      if(!$('#ew').value){$('#unit').value='cm';$('#ew').value=w;$('#eh').value=h}
+      kind='pdf';pdfDoc=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;pageCount=pdfDoc.numPages;
+      const v=(await pdfDoc.getPage(1)).getViewport({scale:1}),w=(v.width*25.4/72).toFixed(1),h=(v.height*25.4/72).toFixed(1);
+      detAR=v.width/v.height;$('#detect').textContent=`Ukuran halaman 1 terdeteksi: ${w} × ${h} mm (dipakai sebagai ukuran setelah dilebihkan jika kosong).`;
+      if(!$('#ew').value){$('#unit').value='mm';$('#ew').value=w;$('#eh').value=h}
     }else{
       kind='img';pageCount=1;imgEl=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(f)});
-      $('#detect').textContent=`Resolusi gambar: ${imgEl.width} × ${imgEl.height} px.`;
+      detAR=imgEl.width/imgEl.height;$('#detect').textContent=`Resolusi gambar: ${imgEl.width} × ${imgEl.height} px.`;
     }
     $('#finfo').innerHTML=`<b style="color:var(--ok)">${f.name}</b> · ${(f.size/1048576).toFixed(2)} MB · ${pageCount} halaman`;
     $('#pg').max=pageCount;
@@ -188,6 +190,8 @@ $('#toSet').onclick=()=>{
   const [ow,oh,ew,eh]=['#ow','#oh','#ew','#eh'].map(num);
   if(![ow,oh,ew,eh].every(x=>x>0))return alert('Isi ukuran design awal & ukuran setelah dilebihkan.');
   if(ew<ow-0.01||eh<oh-0.01)return alert('Ukuran setelah dilebihkan harus ≥ ukuran design awal.');
+  const want=ew/eh;
+  if(detAR&&Math.abs(detAR/want-1)>0.01&&!confirm(`Rasio file (${detAR.toFixed(3)}) tidak sama dengan ukuran setelah dilebihkan yang kamu isi (${want.toFixed(3)}). Design akan melar dan garis potong jadi tidak pas${Math.abs(detAR*want-1)<0.02?' (kemungkinan Lebar dan Tinggi tertukar)':''}. Tetap lanjut?`))return;
   syncCut();show('s2');
 };
 function syncCut(){const o=$('#useOrig').checked;$('#cw').disabled=$('#ch').disabled=o;if(o){$('#cw').value=$('#ow').value;$('#ch').value=$('#oh').value}}
@@ -215,8 +219,8 @@ $('#again').onclick=()=>{outBytes=null;$('#preview').innerHTML='';show('s1')};
 function params(){
   const ew=num('#ew'),eh=num('#eh'),cw=num('#cw'),ch=num('#ch'),book=$('#mode').value==='book';
   const bx=(ew-cw)/2,by=(eh-ch)/2,pName=$('#paper').value;let pw,ph;
-  if(pName==='Custom'){pw=(+$('#pw').value||0)*10;ph=(+$('#ph').value||0)*10}else[pw,ph]=PAPERS[pName];
-  const m=(+$('#mg').value||0)*10,gap=(+$('#gap').value||0)*10,useMk=$('#mk').checked,len=+$('#mkLen').value;
+  if(pName==='Custom'){pw=+$('#pw').value;ph=+$('#ph').value}else[pw,ph]=PAPERS[pName];
+  const m=+$('#mg').value||0,gap=+$('#gap').value||0,useMk=$('#mk').checked,len=+$('#mkLen').value;
   const tw=book?2*cw:cw,th=ch,ex=bx+(useMk?1+len:0),ey=by+(useMk?1+len:0);
   return {ew,eh,cw,ch,book,bx,by,pName,pw,ph,m,gap,useMk,len,tw,th,lay:fit(pw,ph,m,tw,th,gap,ex,ey)};
 }
@@ -250,34 +254,16 @@ async function pageCanvas(n,w,h){
   }else{x.imageSmoothingQuality='high';x.drawImage(imgEl,0,0,w,h)}
   return c;
 }
-const toJpg=c=>new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(r),'image/jpeg',1));
-function jpegOrientation(buf){
-  try{
-    const v=new DataView(buf);if(v.getUint16(0)!==0xFFD8)return 1;
-    let o=2;
-    while(o<v.byteLength-4){
-      const m=v.getUint16(o),l=v.getUint16(o+2);
-      if(m===0xFFE1&&v.getUint32(o+4)===0x45786966){
-        const t=o+10,le=v.getUint16(t)===0x4949,g=p=>v.getUint16(p,le);
-        const ifd=t+v.getUint32(t+4,le),n=g(ifd);
-        for(let i=0;i<n;i++){const e=ifd+2+i*12;if(g(e)===0x0112)return g(e+8)}
-        return 1;
-      }
-      if((m&0xFF00)!==0xFF00)break;
-      o+=2+l;
-    }
-  }catch(_){}
-  return 1;
-}
+const toJpg=c=>new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(r),'image/jpeg',.95));
 const prog=(p,t)=>{$('#bar').style.width=p+'%';$('#stat').textContent=t};
 const tick=()=>new Promise(r=>setTimeout(r,20));
 
 $('#start').onclick=async()=>{
-  const {PDFDocument,rgb,cmyk,pushGraphicsState,popGraphicsState,rectangle,clip,endPath,concatTransformationMatrix}=PDFLib;
+  const {PDFDocument,rgb,cmyk,pushGraphicsState,popGraphicsState,rectangle,clip,endPath,degrees}=PDFLib;
   const P=params(),{ew,eh,cw,ch,book,bx,by,pName,gap,useMk,len,lay}=P;
   const mkTh=+$('#mkTh').value,mtype=$('#mkType').value;
   const col=$('#mkCol').value==='reg'?cmyk(1,1,1,1):rgb(0,0,0);
-  const ih=eh;
+  const iw=book?2*cw+2*bx:ew,ih=eh;
   if(!lay)return alert('Design lebih besar dari kertas. Pilih kertas yang lebih besar.');
   let spreads=[];
   if(book){
@@ -285,46 +271,27 @@ $('#start').onclick=async()=>{
     if(!spreads.length)return alert('Isi susunan halaman buku dulu (atau klik "Susun otomatis").');
     if(spreads.flat().some(p=>p>pageCount))return alert('Ada nomor halaman melebihi jumlah halaman PDF ('+pageCount+').');
   }
-  const jobs=book?spreads:[[kind==='pdf'?Math.min(pageCount,Math.max(1,+$('#pg').value||1)):1,0]];
   show('s4');$('#res').classList.add('hide');$('#preview').innerHTML='';prog(2,'Memulai…');
-  const cm=v=>(v/10).toFixed(2);
-  log('mulai',{mode:book?'buku':'normal',kertas:pName,design:`${cm(cw)}x${cm(ch)}cm`,lebihan:`${cm(ew)}x${cm(eh)}cm`,garis_potong:useMk?mtype:'tidak'});
+  log('mulai',{mode:book?'buku':'normal',kertas:pName,design:`${cw.toFixed(1)}x${ch.toFixed(1)}mm`,lebihan:`${ew.toFixed(1)}x${eh.toFixed(1)}mm`,garis_potong:useMk?mtype:'tidak'});
   try{
-    const k=72/25.4;
-    const doc=await PDFDocument.create(),cache=new Map();
-    let srcPdf=null;
-    if(kind==='pdf'){try{srcPdf=await PDFDocument.load(srcBuf,{ignoreEncryption:true,updateMetadata:false})}catch(_){srcPdf=null}}
-    const jpgOk=kind==='img'&&jpegOrientation(srcBuf)===1;
-    // Ambil sumber ASLI tanpa render ulang / kompres. Raster hanya dipakai sebagai cadangan (kualitas maksimum).
-    const getEmb=async n=>{
-      if(cache.has(n))return cache.get(n);
-      let r=null;
-      if(kind==='pdf'){
-        if(srcPdf){try{const pgx=await pdfDoc.getPage(n);if(!(pgx.rotate%360))r={e:await doc.embedPage(srcPdf.getPage(n-1)),page:true}}catch(_){r=null}}
-        if(!r){const ppm=Math.min(300/25.4,9000/Math.max(ew,eh));r={e:await doc.embedJpg(await toJpg(await pageCanvas(n,Math.round(ew*ppm),Math.round(eh*ppm))))}}
-      }else{
-        if(jpgOk){try{r={e:await doc.embedJpg(srcBuf)}}catch(_){r=null}}
-        if(!r){
-          let W=imgEl.naturalWidth,H=imgEl.naturalHeight;const sc=Math.min(1,Math.sqrt(1.2e8/(W*H)));W=Math.round(W*sc);H=Math.round(H*sc);
-          const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(imgEl,0,0,W,H);
-          r={e:await doc.embedJpg(await toJpg(c))};
-        }
+    const ppm=Math.min(300/25.4,9000/Math.max(iw,ih)),k=72/25.4;
+    const doc=await PDFDocument.create(),emb=[];
+    const need=book?spreads.length:1;
+    for(let i=0;i<need;i++){
+      prog(5+60*i/need,book?`Merender spread ${i+1}/${need}…`:'Merender design…');await tick();
+      let c;
+      if(!book)c=await pageCanvas(kind==='pdf'?Math.min(pageCount,Math.max(1,+$('#pg').value||1)):1,Math.round(ew*ppm),Math.round(eh*ppm));
+      else{
+        const [L,R]=spreads[i],pwid=Math.round(ew*ppm),phei=Math.round(eh*ppm),fx=pwid/ew,W=Math.round(iw*ppm),dx=W/iw;
+        c=document.createElement('canvas');c.width=W;c.height=phei;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+        if(L){const pc=await pageCanvas(L,pwid,phei);x.drawImage(pc,0,0,(bx+cw)*fx,phei,0,0,(bx+cw)*dx,phei)}
+        if(R){const pc=await pageCanvas(R,pwid,phei);x.drawImage(pc,bx*fx,0,(bx+cw)*fx,phei,(bx+cw)*dx,0,(bx+cw)*dx,phei)}
       }
-      cache.set(n,r);return r;
-    };
-    const need=[...new Set(jobs.flat().filter(Boolean))];
-    for(let i=0;i<need.length;i++){prog(5+60*i/need.length,`Menyiapkan file asli ${i+1}/${need.length} (tanpa kompres)…`);await tick();await getEmb(need[i])}
-    const drawSrc=(pg,n,x,y,w,h)=>{const r=cache.get(n);if(!r)return;r.page?pg.drawPage(r.e,{x,y,width:w,height:h}):pg.drawImage(r.e,{x,y,width:w,height:h})};
-    const drawJob=(pg,job)=>{
-      const [L,R]=job,W=ew*k,H=eh*k;
-      if(!book){drawSrc(pg,L,0,0,W,H);return}
-      const half=(bx+cw)*k,off=bx*k;
-      const side=(n,cx,dx)=>{if(!n)return;pg.pushOperators(pushGraphicsState(),rectangle(cx,0,half,H),clip(),endPath());drawSrc(pg,n,dx,0,W,H);pg.pushOperators(popGraphicsState())};
-      side(L,0,0);side(R,half,half-off);
-    };
+      emb.push(await doc.embedJpg(await toJpg(c)));
+    }
     const sheets=[];
     if(!book){const tot=+$('#copies').value||lay.n;for(let i=0;i<tot;i+=lay.n)sheets.push(Array(Math.min(lay.n,tot-i)).fill(0))}
-    else{const per=$('#onePer').checked?1:lay.n;for(let i=0;i<jobs.length;i+=per)sheets.push(jobs.map((_,j)=>j).slice(i,i+per))}
+    else{const per=$('#onePer').checked?1:lay.n;for(let i=0;i<emb.length;i+=per)sheets.push(emb.map((_,j)=>j).slice(i,i+per))}
     const line=(pg,x1,y1,x2,y2)=>{
       const o=(dx,dy)=>pg.drawLine({start:{x:(x1+dx)*k,y:(y1+dy)*k},end:{x:(x2+dx)*k,y:(y2+dy)*k},thickness:mkTh*k,color:col,
         dashArray:mtype==='dash'?[2*k,1.2*k]:mtype==='dot'?[mkTh*k,1.1*k]:undefined,lineCap:mtype==='dot'?1:0});
@@ -343,21 +310,23 @@ $('#start').onclick=async()=>{
         const x0=ox+c*(lay.a+gap),yb=lay.H-(oy+r*(lay.b+gap)+lay.b);
         const e=(has,b)=>has&&gap<2*b?0:b;
         const eL=e(c>0,bbx),eR=e(c<lay.cols-1&&idx+1<n,bbx),eT=e(r>0,bby),eB=e(idx+lay.cols<n,bby);
-        pg.pushOperators(pushGraphicsState(),rectangle((x0-eL)*k,(yb-eB)*k,(lay.a+eL+eR)*k,(lay.b+eT+eB)*k),clip(),endPath(),
-          lay.rot?concatTransformationMatrix(0,1,-1,0,(x0-bbx+ih)*k,(yb-bby)*k):concatTransformationMatrix(1,0,0,1,(x0-bbx)*k,(yb-bby)*k));
-        drawJob(pg,jobs[ei]);
+        pg.pushOperators(pushGraphicsState(),rectangle((x0-eL)*k,(yb-eB)*k,(lay.a+eL+eR)*k,(lay.b+eT+eB)*k),clip(),endPath());
+        if(!lay.rot)pg.drawImage(emb[ei],{x:(x0-bbx)*k,y:(yb-bby)*k,width:iw*k,height:ih*k});
+        else pg.drawImage(emb[ei],{x:(x0-bbx+ih)*k,y:(yb-bby)*k,width:iw*k,height:ih*k,rotate:degrees(90)});
         pg.pushOperators(popGraphicsState());
       });
       if(useMk){
-        const xs=[],ys=[];
-        for(let c=0;c<ncol;c++){const x=ox+c*(lay.a+gap);xs.push(x,x+lay.a)}
-        for(let r=0;r<nrow;r++){const t=lay.H-(oy+r*(lay.b+gap));ys.push(t,t-lay.b)}
-        const top=lay.H-oy,bot=lay.H-(oy+nrow*lay.b+(nrow-1)*gap),lft=ox,rgt=ox+ncol*lay.a+(ncol-1)*gap;
-        uniq(xs).forEach(x=>{line(pg,x,top+bby+1,x,top+bby+1+len);line(pg,x,bot-bby-1,x,bot-bby-1-len)});
-        uniq(ys).forEach(y=>{line(pg,lft-bbx-1,y,lft-bbx-1-len,y);line(pg,rgt+bbx+1,y,rgt+bbx+1+len,y)});
+        const colBot=c=>lay.H-(oy+Math.floor((n-1-c)/lay.cols)*(lay.b+gap)+lay.b);
+        const rowRgt=r=>ox+(Math.min(lay.cols,n-r*lay.cols)-1)*(lay.a+gap)+lay.a;
+        const top=lay.H-oy,lft=ox,VX=[],HY=[];
+        const add=(arr,v,e,pick)=>{const o=arr.find(q=>Math.abs(q.v-v)<0.01);o?o.e=pick(o.e,e):arr.push({v,e})};
+        for(let c=0;c<ncol;c++){const x=ox+c*(lay.a+gap),bt=colBot(c);add(VX,x,bt,Math.min);add(VX,x+lay.a,bt,Math.min)}
+        for(let r=0;r<nrow;r++){const t=lay.H-(oy+r*(lay.b+gap)),rg=rowRgt(r);add(HY,t,rg,Math.max);add(HY,t-lay.b,rg,Math.max)}
+        VX.forEach(q=>{line(pg,q.v,top+bby+1,q.v,top+bby+1+len);line(pg,q.v,q.e-bby-1,q.v,q.e-bby-1-len)});
+        HY.forEach(q=>{line(pg,lft-bbx-1,q.v,lft-bbx-1-len,q.v);line(pg,q.e+bbx+1,q.v,q.e+bbx+1+len,q.v)});
         if(book){
-          if(!lay.rot)for(let c=0;c<ncol;c++){const mx=ox+c*(lay.a+gap)+lay.a/2;line(pg,mx,top+bby+1,mx,top+bby+1+len/2);line(pg,mx,bot-bby-1,mx,bot-bby-1-len/2)}
-          else for(let r=0;r<nrow;r++){const my=lay.H-(oy+r*(lay.b+gap))-lay.b/2;line(pg,lft-bbx-1,my,lft-bbx-1-len/2,my);line(pg,rgt+bbx+1,my,rgt+bbx+1+len/2,my)}
+          if(!lay.rot)for(let c=0;c<ncol;c++){const mx=ox+c*(lay.a+gap)+lay.a/2;line(pg,mx,top+bby+1,mx,top+bby+1+len/2);line(pg,mx,colBot(c)-bby-1,mx,colBot(c)-bby-1-len/2)}
+          else for(let r=0;r<nrow;r++){const my=lay.H-(oy+r*(lay.b+gap))-lay.b/2;line(pg,lft-bbx-1,my,lft-bbx-1-len/2,my);line(pg,rowRgt(r)+bbx+1,my,rowRgt(r)+bbx+1+len/2,my)}
         }
       }
     }
@@ -366,14 +335,14 @@ $('#start').onclick=async()=>{
     outName=`nexora-${(file.name.replace(/\.[^.]+$/,'')||'layout').slice(0,40)}-${pName.replace('+','plus')}.pdf`;
     const pd=await pdfjsLib.getDocument({data:outBytes.slice()}).promise;
     for(let p=1;p<=pd.numPages;p++){
-      const pgx=await pd.getPage(p),v=pgx.getViewport({scale:1}),sc=Math.min(2,760/v.width),vp=pgx.getViewport({scale:sc});
+      const pgx=await pd.getPage(p),v=pgx.getViewport({scale:1}),sc=Math.min(4,1100/v.width),vp=pgx.getViewport({scale:sc});
       const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
       await pgx.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;$('#preview').append(c);
     }
     prog(100,'Selesai ✔');
     $('#p1').textContent=`Kertas ${pName} ${lay.rot?'(design diputar)':''}`;
     $('#p2').textContent=`${lay.W>lay.H?'Landscape':'Portrait'} · ${lay.cols}×${lay.rows} per lembar`;
-    $('#p3').textContent=`${sheets.length} halaman PDF · ${(outBytes.length/1048576).toFixed(1)} MB · kualitas asli`;
+    $('#p3').textContent=`${sheets.length} halaman PDF · ${(outBytes.length/1048576).toFixed(1)} MB`;
     $('#res').classList.remove('hide');
     log('selesai',{mode:book?'buku':'normal',kertas:pName,lembar:sheets.length,susunan:`${lay.cols}x${lay.rows}`,orientasi:lay.W>lay.H?'landscape':'portrait'});
   }catch(e){console.error(e);prog(0,'Gagal: '+e.message);alert('Terjadi error: '+e.message);log('error',{pesan:e.message})}
@@ -410,6 +379,40 @@ $('#hdGo').onclick=async()=>{
     log('hd',{file:f.name,skala:s+'x',hasil:`${w}x${h}`});
   }catch(e){$('#hdStat').textContent='Gagal memproses gambar.'}
 };
+
+// ---------- tutorial, pesan admin, blokir ----------
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ov=$('#ov'),box=$('#ovBox'),closeOv=()=>ov.classList.add('hide');
+const STEPS=[
+['Upload file','Klik kotak upload lalu pilih file design <b>JPG</b> atau <b>PDF</b>.'],
+['Isi ukuran','Isi <b>ukuran design awal</b>, lalu <b>ukuran setelah dilebihkan</b> (bleed). Perbandingan Lebar × Tinggi harus sama dengan file supaya garis potong pas. Klik <b>Settings</b>.'],
+['Settings garis potong','Pilih jenis, tebal, panjang &amp; warna garis potong (ada di sudut luar). Ukuran potong = ukuran design; centang kalau sama, atau isi manual. Klik <b>Mulai</b>.'],
+['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
+['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
+['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar.']];
+function tutorial(i=0){
+  box.innerHTML=`<h2>📖 Cara pakai (${i+1}/${STEPS.length})</h2><h3 style="margin:6px 0">${STEPS[i][0]}</h3><p>${STEPS[i][1]}</p><div class="row"><button class="sec" id="tP" ${i?'':'disabled'}>← Sebelumnya</button><button class="go" id="tN">${i<STEPS.length-1?'Lanjut →':'Mulai pakai ✓'}</button><button class="sec" id="tX">Tutup</button></div>`;
+  ov.classList.remove('hide');
+  const done=()=>{try{localStorage.nx_tut=1}catch{}closeOv()};
+  $('#tP').onclick=()=>tutorial(i-1);$('#tN').onclick=()=>i<STEPS.length-1?tutorial(i+1):done();$('#tX').onclick=done;
+}
+function showMsgs(list){
+  box.innerHTML='<h2>📢 Pesan dari Admin</h2>'+list.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+'<button class="go" id="mOk">Mengerti</button>';
+  ov.classList.remove('hide');
+  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv();if(!localStorage.nx_tut)tutorial()};
+}
+$('#tutBtn').onclick=()=>tutorial();
+let taps=0,tt;$('#logo').onclick=()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,1500);if(taps>=5)location.href='/admin.html'};
+(async()=>{
+  let seen=[];try{seen=JSON.parse(localStorage.nx_seen||'[]')}catch{}
+  try{
+    const r=await fetch('/api/hello',{method:'POST'});if(!r.ok)throw 0;const d=await r.json();
+    if(d.blocked){document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div><div style="font-size:48px">🚫</div><h2>Akses diblokir</h2><p style="color:#8b92b5">${esc(d.reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</p></div></div>`;return}
+    const nw=(d.messages||[]).filter(m=>!seen.includes(m.id));
+    if(nw.length)return showMsgs(nw);
+  }catch{}
+  try{if(!localStorage.nx_tut)tutorial()}catch{}
+})();
 </script>
 </body>
 </html>
