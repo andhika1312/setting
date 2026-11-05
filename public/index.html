@@ -138,6 +138,7 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
 <footer>NEXORA SETINGS · gratis dipakai · proses berjalan di browser kamu</footer>
 
 <div class="ov hide" id="ov"><div class="card" id="ovBox"></div></div>
+<div class="ov hide" id="mov" style="z-index:60"><div class="card" id="mBox"></div></div>
 <script>
 (function(){
 const $=s=>document.querySelector(s);
@@ -162,27 +163,43 @@ function tutorial(i=0,forced=false){
   if(forced&&last)$('#tOk').onchange=e=>{$('#tN').disabled=!e.target.checked};
   if(!forced)$('#tX').onclick=closeOv;
 }
+let seenIds=[];try{seenIds=JSON.parse(localStorage.nx_seen||'[]')}catch{}
+let cur=[],mTimer=0,mLeft=0;
+function closeMsgs(){
+  clearInterval(mTimer);mTimer=0;$('#mov').classList.add('hide');
+  const ids=cur.map(m=>m.id);seenIds.push(...ids);cur=[];
+  try{localStorage.nx_seen=JSON.stringify(seenIds.slice(-100))}catch{}
+}
+function paintMsgs(){
+  $('#mBox').innerHTML='<h2>📢 Pesan dari Admin</h2>'+cur.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+`<div class="bar" style="margin:12px 0"><i style="width:${mLeft*10}%;transition:width 1s linear"></i></div><div class="row"><button class="go" id="mOk">Mengerti</button><span class="hint">Tertutup otomatis dalam ${mLeft} detik</span></div>`;
+  $('#mOk').onclick=closeMsgs;
+}
 function showMsgs(list){
-  box.innerHTML='<h2>📢 Pesan dari Admin</h2>'+list.map(m=>`<div class="card" style="margin:8px 0;white-space:pre-wrap">${esc(m.text)}<div class="hint">${new Date(m.at).toLocaleString('id-ID')}</div></div>`).join('')+'<button class="go" id="mOk">Mengerti</button>';
-  ov.classList.remove('hide');
-  $('#mOk').onclick=()=>{try{const sn=JSON.parse(localStorage.nx_seen||'[]');localStorage.nx_seen=JSON.stringify([...sn,...list.map(m=>m.id)].slice(-100))}catch{}closeOv()};
+  list.forEach(m=>{if(!cur.find(x=>x.id===m.id))cur.push(m)});
+  mLeft=10;paintMsgs();$('#mov').classList.remove('hide');
+  clearInterval(mTimer);mTimer=setInterval(()=>{mLeft--;if(mLeft<=0)closeMsgs();else paintMsgs()},1000);
 }
 function blockedScreen(reason){
   document.body.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:#0b0d17;color:#e8eaf6;font:16px system-ui"><div style="max-width:420px"><div style="font-size:56px">🚫</div><h2 style="margin:8px 0">Akses kamu diblokir</h2><div style="background:#141828;border:1px solid #262c45;border-radius:14px;padding:14px;margin:14px 0;white-space:pre-wrap;text-align:left"><div style="color:#8b92b5;font-size:12px;margin-bottom:4px">Pesan dari admin:</div>${esc(reason||'Akses kamu ke web ini dinonaktifkan oleh admin.')}</div><p style="color:#8b92b5;font-size:13px">Merasa ini kesalahan? Hubungi admin untuk meminta akses dibuka kembali.</p></div></div>`;
 }
 $('#tutBtn').onclick=()=>tutorial();
 let taps=0,tt;$('#logo').onclick=()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,1500);if(taps>=5)location.href='/admin.html'};
+function handle(d){
+  if(d.blocked){blockedScreen(d.reason);return true}
+  const nw=(d.messages||[]).filter(m=>!seenIds.includes(m.id)&&!cur.find(x=>x.id===m.id));
+  if(nw.length)showMsgs(nw);
+  return false;
+}
+async function poll(path){
+  try{const r=await fetch('/api/'+path,{method:'POST'});if(r.ok||r.status===403)return handle(await r.json())}catch{}
+  return false;
+}
+tutorial(0,true);
 (async()=>{
-  tutorial(0,true);
-  let seen=[];try{seen=JSON.parse(localStorage.nx_seen||'[]')}catch{}
-  try{
-    const r=await fetch('/api/hello',{method:'POST'});if(!r.ok)throw 0;const d=await r.json();
-    if(d.blocked)return blockedScreen(d.reason);
-    const nw=(d.messages||[]).filter(m=>!seen.includes(m.id));
-    if(nw.length){if(ov.classList.contains('hide'))showMsgs(nw);else pend=nw}
-  }catch{}
+  if(await poll('hello'))return;
+  const iv=setInterval(async()=>{if(!document.hidden&&await poll('poll'))clearInterval(iv)},8000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll('poll')});
 })();
-
 window.blockedScreen=blockedScreen;
 })();
 </script>

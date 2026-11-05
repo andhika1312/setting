@@ -4,7 +4,7 @@ import { getStore } from '@netlify/blobs';
 const ADMIN_PASSWORD = 'andhika1312';
 // ===========================================
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 export const config = { path: '/api/*' };
 
 const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -45,6 +45,11 @@ export default async (req, context) => {
     if (b) return J({ blocked: true, reason: b.reason || '' });
     const messages = (await getMsgs()).filter(m => m.to === 'all' || m.to === ip).slice(-20);
     return J({ ip, messages, v: VERSION });
+  }
+  if (path === 'poll') {
+    const b = (await getBlocked()).find(x => x.ip === ip);
+    if (b) return J({ blocked: true, reason: b.reason || '' });
+    return J({ messages: (await getMsgs()).filter(m => m.to === 'all' || m.to === ip).slice(-20) });
   }
   if (path === 'log') {
     { const bl = (await getBlocked()).find(x => x.ip === ip); if (bl) return J({ blocked: true, reason: bl.reason || '' }, 403); }
