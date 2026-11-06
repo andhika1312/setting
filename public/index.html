@@ -37,12 +37,15 @@ button.sec{background:none;border:1px solid var(--line);color:var(--mu);padding:
 textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace}
 footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
 .ov{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.ov>.card{max-width:520px;width:100%;max-height:90vh;overflow:auto;margin:0}
+nav{display:flex;flex-wrap:wrap;gap:6px}nav button{margin-left:0}
+#bgOut canvas{max-width:100%;height:auto;border-radius:6px;margin:8px 0;display:block;cursor:crosshair;background:repeating-conic-gradient(#c9c9c9 0 25%,#fff 0 50%) 0 0/16px 16px;box-shadow:0 4px 20px #0008}
+input[type=range]{accent-color:var(--ac);width:200px}
 </style>
 </head>
 <body>
 <header>
   <h1 id="logo">NEXORA <b>SETINGS</b></h1>
-  <nav><button class="tab on" data-t="layout">✂️ Layout Cetak</button><button class="tab" data-t="hd">✨ HD-kan Foto</button><button id="tutBtn">❓ Tutorial</button></nav>
+  <nav><button class="tab on" data-t="layout">✂️ Layout Cetak</button><button class="tab" data-t="hd">✨ HD-kan Foto</button><button class="tab" data-t="bg">🪄 Hapus Background</button><button id="tutBtn">❓ Tutorial</button></nav>
 </header>
 <main>
 <section id="layout">
@@ -145,6 +148,32 @@ footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
     <a id="hdDl" class="hide"><button class="go" style="margin-top:8px">⬇ Download Hasil</button></a>
   </div>
 </section>
+<section id="bg" class="hide">
+  <div class="card">
+    <h2>🪄 Hapus Background</h2>
+    <p class="hint">Gratis dan diproses di browser kamu (file tidak diunggah). Hasil bisa PNG transparan, atau diganti warna latar.</p>
+    <div class="row">
+      <label>Gambar (JPG/PNG/WebP)<input type="file" id="bgFile" accept="image/*"></label>
+      <label>Metode<select id="bgMode"><option value="color">Warna polos (cepat, tanpa internet)</option><option value="ai">AI otomatis — eksperimental (butuh internet)</option></select></label>
+    </div>
+    <div id="bgColorOpt">
+      <div class="row">
+        <label>Toleransi warna: <b id="tolV">22</b><input type="range" id="bgTol" min="1" max="80" value="22"></label>
+        <label>Haluskan tepi: <b id="softV">1</b><input type="range" id="bgSoft" min="0" max="3" value="1"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="bgGlobal"> Hapus semua warna yang sama (termasuk di dalam objek)</label>
+      <p class="hint">Warna latar dipilih otomatis dari sudut gambar. Klik pada gambar hasil untuk memilih warna lain yang ingin dihapus.</p>
+    </div>
+    <div class="row">
+      <label>Latar hasil<select id="bgFill"><option value="transparent">Transparan</option><option value="#ffffff">Putih</option><option value="custom">Warna lain…</option></select></label>
+      <label id="bgColL" class="hide">Warna<input type="color" id="bgCol" value="#ffffff" style="padding:2px;height:38px"></label>
+      <label>Format<select id="bgFmt"><option value="png">PNG</option><option value="jpg">JPG (tanpa transparan)</option></select></label>
+    </div>
+    <div class="row"><button class="go" id="bgGo">Proses</button><a id="bgDl" class="hide"><button class="go">⬇ Download</button></a></div>
+    <p class="hint" id="bgStat"></p>
+    <div id="bgOut"></div>
+  </div>
+</section>
 </main>
 <footer>NEXORA SETINGS · gratis dipakai · proses berjalan di browser kamu</footer>
 
@@ -163,7 +192,7 @@ const STEPS=[
 ['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
 ['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
 ['Banyak halaman &amp; bolak-balik','Pilih mode <b>Banyak halaman</b> untuk PDF berisi banyak desain berbeda. Pilih <b>1 lembar sama</b>, <b>1 lembar berbeda</b>, atau <b>bolak-balik</b> (halaman ganjil = depan, genap = belakang; sisi belakang otomatis dicerminkan). Untuk bolak-balik, ikuti petunjuk Duplex yang tampil di hasil.'],
-['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar.']];
+['Mode Buku &amp; HD','<b>Mode Buku</b> (pilih di langkah 1) untuk PDF banyak halaman: tulis susunan seperti <code>1,2</code> / <code>3,5</code> / <code>4,6</code> atau klik Susun otomatis. Tab <b>HD-kan Foto</b> untuk memperbesar &amp; menajamkan gambar, dan tab <b>Hapus Background</b> untuk menghapus latar gambar.']];
 let pend=[];
 function tutorial(i=0,forced=false){
   const last=i===STEPS.length-1;
@@ -229,7 +258,7 @@ let edDirty=false,detMM=null,prevUnit='mm',detAR=0,file=null,kind='',pdfDoc=null
 
 const log=(event,d={})=>fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,...d})}).then(r=>{if(r.status===403)r.json().then(x=>blockedScreen(x.reason))}).catch(()=>{});
 const show=id=>{['s1','s2','s3','s4'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));window.scrollTo({top:0,behavior:'smooth'})};
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#layout').classList.toggle('hide',b.dataset.t!=='layout');$('#hd').classList.toggle('hide',b.dataset.t!=='hd')});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#layout').classList.toggle('hide',b.dataset.t!=='layout');$('#hd').classList.toggle('hide',b.dataset.t!=='hd');$('#bg').classList.toggle('hide',b.dataset.t!=='bg')});
 $$('[data-back]').forEach(b=>b.onclick=()=>show(b.dataset.back));
 
 // ---------- upload ----------
@@ -534,6 +563,120 @@ $('#hdGo').onclick=async()=>{
   }catch(e){$('#hdStat').textContent='Gagal memproses gambar.'}
 };
 
+</script>
+<script>
+// ==PURE-START==
+function nxAutoKey(d,w,h){
+  if(w<4||h<4)return[255,255,255];
+  const pts=[[0,0],[w-3,0],[0,h-3],[w-3,h-3]],cs=pts.map(([x0,y0])=>{let r=0,g=0,b=0,n=0;for(let y=y0;y<y0+3;y++)for(let x=x0;x<x0+3;x++){const i=(y*w+x)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++}return[r/n,g/n,b/n]});
+  const dd=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  let best=0,bc=-1;cs.forEach((a,i)=>{const c=cs.filter(b=>dd(a,b)<40).length;if(c>bc){bc=c;best=i}});
+  const g=cs.filter(b=>dd(cs[best],b)<40);
+  return[0,1,2].map(k=>Math.round(g.reduce((s,c)=>s+c[k],0)/g.length));
+}
+function nxBlur(a,w,h){
+  const t=new Uint8ClampedArray(a.length),o=new Uint8ClampedArray(a.length);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;t[i]=((x>0?a[i-1]:a[i])+a[i]+(x<w-1?a[i+1]:a[i]))/3}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;o[i]=((y>0?t[i-w]:t[i])+t[i]+(y<h-1?t[i+w]:t[i]))/3}
+  return o;
+}
+function nxRemoveKey(src,w,h,key,T,glob,soft){
+  const n=w*h,out=new Uint8ClampedArray(src),dist=new Float32Array(n),bg=new Uint8Array(n);
+  for(let i=0;i<n;i++){const j=i*4,dr=src[j]-key[0],dg=src[j+1]-key[1],db=src[j+2]-key[2];dist[i]=src[j+3]<8?0:Math.sqrt(dr*dr+dg*dg+db*db)}
+  if(glob){for(let i=0;i<n;i++)if(dist[i]<=T)bg[i]=1}
+  else{
+    const st=new Int32Array(n);let sp=0;
+    const push=i=>{if(!bg[i]&&dist[i]<=T){bg[i]=1;st[sp++]=i}};
+    for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}
+    for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}
+    while(sp){const i=st[--sp],x=i%w;if(x>0)push(i-1);if(x<w-1)push(i+1);if(i>=w)push(i-w);if(i<n-w)push(i+w)}
+  }
+  let al=new Uint8ClampedArray(n);
+  for(let i=0;i<n;i++){
+    if(bg[i])continue;
+    al[i]=255;const x=i%w;
+    const nb=(x>0&&bg[i-1])||(x<w-1&&bg[i+1])||(i>=w&&bg[i-w])||(i<n-w&&bg[i+w]);
+    if(nb&&dist[i]<T*1.6)al[i]=Math.max(0,Math.min(255,Math.round((dist[i]-T)/(T*0.6)*255)));
+  }
+  for(let p=0;p<soft;p++)al=nxBlur(al,w,h);
+  for(let i=0;i<n;i++){
+    const j=i*4,a=al[i];out[j+3]=Math.round(src[j+3]*a/255);
+    if(a>0&&a<255&&dist[i]<T*1.6){const f=a/255;for(let c=0;c<3;c++){const v=(src[j+c]-key[c]*(1-f))/f;out[j+c]=v<0?0:v>255?255:v}}
+  }
+  return out;
+}
+// ==PURE-END==
+(function(){
+const $=s=>document.querySelector(s);
+const MAXS=4000;
+let origData=null,srcBlob=null,res=null,pickKey=null,fname='gambar',dlUrl=null,tm;
+const stat=t=>{$('#bgStat').textContent=t};
+const mode=()=>$('#bgMode').value;
+const lg=(e,d)=>{try{log(e,d)}catch{}};
+const loadImage=src=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=src instanceof Blob?URL.createObjectURL(src):src});
+function final(){
+  const c=document.createElement('canvas');c.width=res.width;c.height=res.height;const x=c.getContext('2d');
+  let f=$('#bgFill').value;if(f==='custom')f=$('#bgCol').value;
+  if($('#bgFmt').value==='jpg'&&f==='transparent')f='#ffffff';
+  if(f!=='transparent'){x.fillStyle=f;x.fillRect(0,0,c.width,c.height)}
+  x.drawImage(res,0,0);return c;
+}
+function render(){
+  if(!res)return;const c=final(),jpg=$('#bgFmt').value==='jpg';
+  c.onclick=pick;$('#bgOut').innerHTML='';$('#bgOut').append(c);
+  c.toBlob(b=>{if(dlUrl)URL.revokeObjectURL(dlUrl);dlUrl=URL.createObjectURL(b);const a=$('#bgDl');a.href=dlUrl;a.download=`nexora-bg-${fname}.${jpg?'jpg':'png'}`;a.classList.remove('hide')},jpg?'image/jpeg':'image/png',.95);
+}
+function run(){
+  if(!origData)return;
+  const {width:w,height:h,data}=origData,key=pickKey||nxAutoKey(data,w,h);
+  const out=nxRemoveKey(data,w,h,key,(+$('#bgTol').value)*2.5,$('#bgGlobal').checked,+$('#bgSoft').value);
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').putImageData(new ImageData(out,w,h),0,0);
+  res=c;render();stat(`Warna latar yang dihapus: rgb(${key.join(', ')}) · ${w}×${h} px`);
+}
+function pick(e){
+  if(mode()!=='color'||!origData)return;
+  const r=e.target.getBoundingClientRect(),W=origData.width,H=origData.height,d=origData.data;
+  const cx=Math.max(0,Math.min(W-1,Math.floor((e.clientX-r.left)/r.width*W))),cy=Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)/r.height*H)));
+  let R=0,G=0,B=0,n=0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=Math.max(0,Math.min(W-1,cx+dx)),y=Math.max(0,Math.min(H-1,cy+dy)),i=(y*W+x)*4;R+=d[i];G+=d[i+1];B+=d[i+2];n++}
+  pickKey=[Math.round(R/n),Math.round(G/n),Math.round(B/n)];run();
+}
+async function runAI(){
+  if(!srcBlob)return stat('Pilih gambar dulu.');
+  $('#bgGo').disabled=true;stat('Memuat AI… (pertama kali mengunduh model, bisa beberapa menit)');
+  try{
+    const mod=await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
+    const rm=mod.removeBackground||mod.default;
+    const blob=await rm(srcBlob,{output:{format:'image/png'},progress:(k,c,t)=>stat(`Mengunduh ${String(k).split(':').pop()}: ${t?Math.round(c/t*100):0}%`)});
+    stat('Memproses…');const img=await loadImage(blob);
+    const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
+    res=c;render();stat(`Selesai ✔ (AI) · ${c.width}×${c.height} px`);
+  }catch(e){console.error(e);stat('AI gagal dimuat atau diproses. Pastikan internet aktif, atau pakai metode "Warna polos". ('+(e.message||e)+')')}
+  $('#bgGo').disabled=false;
+}
+$('#bgFile').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const img=await loadImage(f);let w=img.naturalWidth,h=img.naturalHeight;const s=Math.min(1,MAXS/Math.max(w,h));
+    const W=Math.round(w*s),H=Math.round(h*s),c=document.createElement('canvas');c.width=W;c.height=H;
+    const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,W,H);
+    origData=x.getImageData(0,0,W,H);srcBlob=f;pickKey=null;res=null;fname=f.name.replace(/\.[^.]+$/,'').slice(0,40);
+    $('#bgOut').innerHTML='';$('#bgDl').classList.add('hide');
+    stat(`${w}×${h} px${s<1?` (diperkecil ke ${W}×${H} untuk proses)`:''}`);
+    lg('hapus_bg',{metode:mode(),file:f.name});
+    if(mode()==='color')run();else stat('Klik "Proses" untuk menghapus background dengan AI.');
+  }catch{stat('Gagal membaca gambar.')}
+};
+const deb=()=>{clearTimeout(tm);tm=setTimeout(()=>mode()==='color'&&run(),150)};
+$('#bgTol').oninput=()=>{$('#tolV').textContent=$('#bgTol').value;deb()};
+$('#bgSoft').oninput=()=>{$('#softV').textContent=$('#bgSoft').value;deb()};
+$('#bgGlobal').onchange=deb;
+$('#bgMode').onchange=()=>{$('#bgColorOpt').classList.toggle('hide',mode()!=='color');if(mode()==='color')run();else stat('Klik "Proses" untuk menghapus background dengan AI.')};
+$('#bgFill').onchange=()=>{$('#bgColL').classList.toggle('hide',$('#bgFill').value!=='custom');render()};
+$('#bgCol').oninput=render;$('#bgFmt').onchange=render;
+$('#bgGo').onclick=()=>mode()==='ai'?runAI():(origData?run():stat('Pilih gambar dulu.'));
+$('#bgDl').onclick=()=>lg('hapus_bg_download',{file:fname});
+})();
 </script>
 </body>
 </html>
