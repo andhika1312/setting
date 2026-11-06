@@ -61,7 +61,9 @@ input[type=range]{accent-color:var(--ac);width:200px}
   </div>
   <div class="row">
     <label>Ukuran design awal (L × T)<span style="display:flex;gap:6px;align-items:center"><input type="number" id="ow" step="any" min="0"><span class="x">×</span><input type="number" id="oh" step="any" min="0"></span></label>
-    <label>Ukuran setelah dilebihkan (L × T) <i style="font-weight:400">— otomatis, boleh kosong</i><span style="display:flex;gap:6px;align-items:center"><input type="number" id="ew" step="any" min="0" placeholder="otomatis"><span class="x">×</span><input type="number" id="eh" step="any" min="0" placeholder="otomatis"></span></label>
+    <label>Lebihan per sisi<select id="bleedPre"><option value="3" selected>0,3 cm (3 mm)</option><option value="0">Tanpa lebihan</option><option value="custom">Custom…</option></select></label>
+    <label id="bleedCL" class="hide">Lebihan custom (<span id="bu">mm</span>)<input type="number" id="bleedCustom" step="any" min="0" value="3"></label>
+    <label>Ukuran setelah dilebihkan (otomatis)<span style="display:flex;gap:6px;align-items:center"><input type="number" id="ew" readonly><span class="x">×</span><input type="number" id="eh" readonly></span></label>
   </div>
   <p class="hint" id="detect"></p>
   <button class="go" id="toSet">Settings →</button>
@@ -79,6 +81,7 @@ input[type=range]{accent-color:var(--ac);width:200px}
   <h2 style="margin-top:16px">Lebihan (bleed)</h2>
   <div class="row"><label>File berisi<select id="bleedMode"><option value="auto">Otomatis (deteksi dari ukuran file)</option><option value="add">Ukuran design asli — lebihan ditambahkan otomatis</option><option value="has">Sudah termasuk lebihan</option></select></label>
   <label>Cara mengisi lebihan<select id="fillMode"><option value="stretch">Tarik warna tepi (disarankan)</option><option value="mirror">Cermin tepi</option></select></label></div>
+  <div class="row"><label>Margin putih / area di luar design pada file<select id="trimMode"><option value="auto">Otomatis (file lebih besar dari design → potong bagian tengah)</option><option value="content">Deteksi tepi design (buang margin putih)</option><option value="none">Jangan potong (pakai seluruh halaman)</option></select></label></div>
   <p class="hint" id="bleedInfo"></p>
   <h2 style="margin-top:16px">Ukuran Potong</h2>
   <p class="hint">Ukuran potong = ukuran design (tanpa lebihan).</p>
@@ -187,7 +190,7 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const ov=$('#ov'),box=$('#ovBox'),closeOv=()=>ov.classList.add('hide');
 const STEPS=[
 ['Upload file','Klik kotak upload lalu pilih file design <b>JPG</b> atau <b>PDF</b>.'],
-['Isi ukuran','Isi <b>ukuran design awal</b>. <b>Ukuran setelah dilebihkan</b> (bleed) terisi otomatis; ubah kalau ada lebihan, atau kosongkan kalau tidak ada lebihan. Perbandingan Lebar × Tinggi harus sama dengan file supaya garis potong pas. Klik <b>Settings</b>.'],
+['Isi ukuran','Isi <b>ukuran design awal</b>, lalu pilih <b>lebihan per sisi</b> (bawaan 0,3 cm, bisa Tanpa lebihan atau Custom). Ukuran setelah dilebihkan dihitung otomatis. Perbandingan Lebar × Tinggi harus sama dengan file supaya garis potong pas. Klik <b>Settings</b>.'],
 ['Settings garis potong','Pilih jenis, tebal, panjang &amp; warna garis potong (ada di sudut luar). Ukuran potong = ukuran design; centang kalau sama, atau isi manual. Klik <b>Mulai</b>.'],
 ['Pilih kertas','Pilih ukuran kertas (A3+ = 32,5 × 48,5 cm). Atur margin &amp; jarak (0 = design menempel). Preview kecil menunjukkan susunan dan jumlah design per lembar.'],
 ['Start Loading','Klik <b>Start Loading</b>, tunggu proses, cek preview, lalu <b>Download PDF</b>. Ukuran PDF sama dengan kertas yang dipilih, background putih.'],
@@ -312,8 +315,8 @@ $('#toPaper').onclick=()=>{
   const md=$('#mode').value;
   if((md==='book'||md==='multi')&&kind!=='pdf')return alert('Mode ini butuh file PDF multi-halaman.');
   if(md==='multi'&&pageCount<2)return alert('PDF hanya 1 halaman. Pakai mode Normal, atau upload PDF yang lebih banyak halaman.');
-  const bm=pickBleedMode(ow,oh,ew,eh),tw=bm==='add'?ow:ew,th=bm==='add'?oh:eh,want=tw/th;
-  if(detAR&&Math.abs(detAR/want-1)>0.01&&!confirm(`Rasio file (${detAR.toFixed(3)}) tidak sama dengan ukuran yang diharapkan (${want.toFixed(3)}). Design akan melar dan garis potong jadi tidak pas${Math.abs(detAR*want-1)<0.02?' (kemungkinan Lebar dan Tinggi tertukar)':''}. Tetap lanjut?`))return;
+  const ps0=planSource(ow,oh,ew,eh),bm=ps0.mode,tw=bm==='add'?ow:ew,th=bm==='add'?oh:eh,want=tw/th;
+  if(detAR&&!ps0.frac&&$('#trimMode').value!=='content'&&Math.abs(detAR/want-1)>0.01&&!confirm(`Rasio file (${detAR.toFixed(3)}) tidak sama dengan ukuran yang diharapkan (${want.toFixed(3)}). Design akan melar dan garis potong jadi tidak pas${Math.abs(detAR*want-1)<0.02?' (kemungkinan Lebar dan Tinggi tertukar)':''}. Tetap lanjut?`))return;
   $('#bookInfo').textContent=`PDF punya ${pageCount} halaman.`;
   $('#mode').dispatchEvent(new Event('change'));updateFit();show('s3');
 };
@@ -325,10 +328,13 @@ $('#autoBook').onclick=()=>{
 $('#again').onclick=()=>{outBytes=null;$('#preview').innerHTML='';show('s1')};
 
 // ---------- lebihan otomatis & satuan ----------
-function syncEnl(){if(edDirty)return;$('#ew').value=$('#ow').value;$('#eh').value=$('#oh').value}
+function bleedMm(){const v=$('#bleedPre').value;return v==='custom'?Math.max(0,parseFloat($('#bleedCustom').value)||0)*getU():+v}
+function syncEnl(){const ow=parseFloat($('#ow').value),oh=parseFloat($('#oh').value);if(!(ow>0&&oh>0))return;const b=bleedMm()/getU();$('#ew').value=+(ow+2*b).toFixed(3);$('#eh').value=+(oh+2*b).toFixed(3)}
+$('#bleedPre').onchange=()=>{$('#bleedCL').classList.toggle('hide',$('#bleedPre').value!=='custom');syncEnl();updateBleedInfo()};
+$('#bleedCustom').addEventListener('input',()=>{syncEnl();updateBleedInfo()});
 ['#ow','#oh'].forEach(i=>$(i).addEventListener('input',syncEnl));
-['#ew','#eh'].forEach(i=>$(i).addEventListener('input',()=>{edDirty=!!($('#ew').value||$('#eh').value);if(!edDirty)syncEnl()}));
-function convUnit(to){const f=U[prevUnit]/U[to];['#ow','#oh','#ew','#eh','#cw','#ch'].forEach(i=>{const v=parseFloat($(i).value);if(v)$(i).value=+(v*f).toFixed(3)});prevUnit=to}
+
+function convUnit(to){const f=U[prevUnit]/U[to];['#ow','#oh','#cw','#ch','#bleedCustom'].forEach(i=>{const v=parseFloat($(i).value);if(v)$(i).value=+(v*f).toFixed(3)});prevUnit=to;$('#bu').textContent=to;syncEnl()}
 $('#unit').onchange=()=>convUnit($('#unit').value);
 // ---------- core ----------
 function pickBleedMode(ow,oh,ew,eh){
@@ -338,11 +344,27 @@ function pickBleedMode(ow,oh,ew,eh){
   if(detAR)return Math.abs(detAR-ew/eh)<Math.abs(detAR-ow/oh)?'has':'add';
   return 'add';
 }
+function planSource(ow,oh,ew,eh){
+  const sel=$('#bleedMode').value,forced=sel!=='auto',tm=$('#trimMode').value;
+  let mode=pickBleedMode(ow,oh,ew,eh),frac=null;
+  if(tm==='auto'&&detMM){
+    const [W,H]=detMM,TE=[ew,eh],TO=[ow,oh],near=t=>Math.abs(W-t[0])<=1&&Math.abs(H-t[1])<=1;
+    if(!near(TE)&&!near(TO)){
+      const tgt=forced?(sel==='has'?TE:TO):(W>ew+1&&H>eh+1?TE:(W>ow+1&&H>oh+1?TO:null));
+      if(tgt&&W>tgt[0]+1&&H>tgt[1]+1){frac={x:(W-tgt[0])/2/W,y:(H-tgt[1])/2/H,w:tgt[0]/W,h:tgt[1]/H};mode=tgt===TE?'has':'add'}
+    }
+  }
+  return {mode,frac};
+}
 function updateBleedInfo(){
   const ow=num('#ow'),oh=num('#oh'),ew=num('#ew'),eh=num('#eh');if(!(ow>0&&ew>0))return;
-  const m=pickBleedMode(ow,oh,ew,eh),b=(ew-ow)/2;
-  $('#bleedInfo').textContent=(ew-ow<0.01&&eh-oh<0.01)?'Tanpa lebihan.':m==='add'?`File dianggap berukuran design asli. Lebihan ${+b.toFixed(2)} mm per sisi ditambahkan otomatis DI LUAR design, jadi isi design (termasuk teks di pojok) tidak ikut terpotong.`:'File dianggap sudah termasuk lebihan. Design dipotong sesuai ukuran potong.';
+  const ps=planSource(ow,oh,ew,eh),b=(ew-ow)/2,none=ew-ow<0.01&&eh-oh<0.01;
+  let t=none?'Tanpa lebihan.':ps.mode==='add'?`Lebihan ${+b.toFixed(2)} mm per sisi ditambahkan otomatis DI LUAR design, jadi isi design (termasuk teks di pojok) tidak ikut terpotong.`:'File dianggap sudah termasuk lebihan. Design dipotong sesuai ukuran potong.';
+  if(ps.frac)t+=' File lebih besar dari design → bagian tengah file dipotong sesuai ukuran (margin di luar design dibuang).';
+  if($('#trimMode').value==='content')t+=' Tepi design dideteksi otomatis, margin putih dibuang.';
+  $('#bleedInfo').textContent=t;
 }
+$('#trimMode').addEventListener('change',updateBleedInfo);
 $('#bleedMode').addEventListener('change',updateBleedInfo);
 function addBleed(src,W,H,fill){
   const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
@@ -396,17 +418,23 @@ function updateFit(){
   x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);
   const gw=L.cols*L.a+(L.cols-1)*p.gap,gh=L.rows*L.b+(L.rows-1)*p.gap,ox=(L.W-gw)/2,oy=(L.H-gh)/2;
   x.fillStyle='#7c5cff55';x.strokeStyle='#7c5cff';
-  for(let r=0;r<L.rows;r++)for(let c=0;c<L.cols;c++){const X=(ox+c*(L.a+p.gap))*s,Y=(oy+r*(L.b+p.gap))*s;x.fillRect(X,Y,L.a*s,L.b*s);x.strokeRect(X,Y,L.a*s,L.b*s)}
+  const bbx=L.rot?p.by:p.bx,bby=L.rot?p.bx:p.by;
+  for(let r=0;r<L.rows;r++)for(let c=0;c<L.cols;c++){const X=(ox+c*(L.a+p.gap))*s,Y=(oy+r*(L.b+p.gap))*s;x.fillStyle='#7c5cff33';x.fillRect(X,Y,L.a*s,L.b*s);x.strokeRect(X,Y,L.a*s,L.b*s);x.fillStyle='#7c5cffaa';x.fillRect(X+bbx*s,Y+bby*s,(L.a-2*bbx)*s,(L.b-2*bby)*s)}
 }
 ['#paper','#mg','#gap','#pw','#ph'].forEach(i=>$(i).addEventListener('input',updateFit));
-async function pageCanvas(n,w,h){
+async function pageCanvas(n,w,h,crop){
   const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);
   if(!n)return c;
+  const f=crop||{x:0,y:0,w:1,h:1};
   if(kind==='pdf'){
-    const p=await pdfDoc.getPage(n),v=p.getViewport({scale:1}),sx=w/v.width,sy=h/v.height;
-    await p.render({canvasContext:x,viewport:p.getViewport({scale:sx}),transform:[1,0,0,sy/sx,0,0]}).promise;
-  }else{x.imageSmoothingQuality='high';x.drawImage(imgEl,0,0,w,h)}
+    const p=await pdfDoc.getPage(n),v=p.getViewport({scale:1}),sx=w/(f.w*v.width),sy=h/(f.h*v.height);
+    await p.render({canvasContext:x,viewport:p.getViewport({scale:sx}),transform:[1,0,0,sy/sx,-f.x*v.width*sx,-f.y*v.height*sy]}).promise;
+  }else{x.imageSmoothingQuality='high';x.drawImage(imgEl,f.x*imgEl.width,f.y*imgEl.height,f.w*imgEl.width,f.h*imgEl.height,0,0,w,h)}
   return c;
+}
+async function contentFrac(pg){
+  const W=700,H=Math.max(50,Math.round(W/(detAR||1))),c=await pageCanvas(pg,W,H);
+  return nxContentBox(c.getContext('2d').getImageData(0,0,W,H).data,W,H);
 }
 const toJpg=c=>new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(r),'image/jpeg',.95));
 const prog=(p,t)=>{$('#bar').style.width=p+'%';$('#stat').textContent=t};
@@ -430,10 +458,13 @@ $('#start').onclick=async()=>{
     const ppm=Math.min(300/25.4,9000/Math.max(iw,ih)),k=72/25.4,n=lay.n,N=pageCount;
     const doc=await PDFDocument.create();
     // ---- desain (per halaman / spread) ----
+    const ps=planSource(ow,oh,ew,eh),tmode=$('#trimMode').value,forcedHas=$('#bleedMode').value==='has';
     const boxCanvas=async pg=>{
       const W=Math.round(ew*ppm),H=Math.round(eh*ppm);
-      if(bleedMode==='has'||(ew-ow<0.01&&eh-oh<0.01))return pageCanvas(pg,W,H);
-      return addBleed(await pageCanvas(pg,Math.round(ow*ppm),Math.round(oh*ppm)),W,H,fill);
+      let mode=ps.mode,frac=ps.frac;
+      if(tmode==='content'&&pg){const f=await contentFrac(pg);if(f){frac=f;mode=forcedHas?'has':'add'}}
+      if(mode==='has'||(ew-ow<0.01&&eh-oh<0.01))return pageCanvas(pg,W,H,frac);
+      return addBleed(await pageCanvas(pg,Math.round(ow*ppm),Math.round(oh*ppm),frac),W,H,fill);
     };
     const specCanvas=async s=>{
       if(!book)return boxCanvas(s[0]);
@@ -604,6 +635,15 @@ function nxRemoveKey(src,w,h,key,T,glob,soft){
     if(a>0&&a<255&&dist[i]<T*1.6){const f=a/255;for(let c=0;c<3;c++){const v=(src[j+c]-key[c]*(1-f))/f;out[j+c]=v<0?0:v>255?255:v}}
   }
   return out;
+}
+function nxContentBox(d,w,h){
+  const col=new Uint32Array(w),row=new Uint32Array(h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(d[i+3]>10&&(d[i]<235||d[i+1]<235||d[i+2]<235)){col[x]++;row[y]++}}
+  const tc=h*0.2,tr=w*0.2;let x0=-1,x1=-1,y0=-1,y1=-1;
+  for(let x=0;x<w;x++)if(col[x]>=tc){if(x0<0)x0=x;x1=x}
+  for(let y=0;y<h;y++)if(row[y]>=tr){if(y0<0)y0=y;y1=y}
+  if(x0<0||y0<0||x1<=x0||y1<=y0)return null;
+  return {x:x0/w,y:y0/h,w:(x1-x0+1)/w,h:(y1-y0+1)/h};
 }
 // ==PURE-END==
 (function(){
